@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { Copy, X } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ export function TableEditor({
   canRemove,
   isOpen,
   onChange,
+  onDuplicate,
   onRemove,
   onToggle,
   table,
@@ -18,6 +19,7 @@ export function TableEditor({
   canRemove: boolean;
   isOpen: boolean;
   onChange: (patch: Partial<WeddingTable>) => void;
+  onDuplicate: () => void;
   onRemove: () => void;
   onToggle: (isOpen: boolean) => void;
   table: WeddingTable;
@@ -32,6 +34,21 @@ export function TableEditor({
         <span className="min-w-0 overflow-hidden text-sm font-bold text-ellipsis whitespace-nowrap">{table.name}</span>
         <div className="flex flex-none items-center gap-2">
           <em className="text-xs not-italic whitespace-nowrap text-muted-foreground">{createSeatsForTable(table).length} seats</em>
+          <Button
+            aria-label={`Duplicate ${table.name}`}
+            className="size-7 rounded-md border-border bg-background p-0"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onDuplicate();
+            }}
+            size="icon"
+            title={`Duplicate ${table.name}`}
+            type="button"
+            variant="ghost"
+          >
+            <Copy aria-hidden="true" />
+          </Button>
           <Button
             aria-label={`Remove ${table.name}`}
             className="size-7 rounded-md border-border bg-background p-0 text-destructive hover:border-destructive/30 hover:bg-destructive-muted disabled:text-muted-foreground"

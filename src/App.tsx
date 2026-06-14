@@ -77,6 +77,27 @@ export function App() {
     setOpenTableEditorIds((current) => new Set([...current, table.id]));
   }
 
+  function duplicateTable(tableId: string) {
+    const source = state.tables.find((table) => table.id === tableId);
+    if (!source) return;
+
+    const table: WeddingTable = {
+      ...source,
+      id: createId("table"),
+      name: createDuplicateTableName(source.name, state.tables),
+    };
+
+    setState((current) => {
+      const sourceIndex = current.tables.findIndex((item) => item.id === tableId);
+      if (sourceIndex === -1) return current;
+
+      const tables = [...current.tables];
+      tables.splice(sourceIndex + 1, 0, table);
+      return { ...current, tables };
+    });
+    setOpenTableEditorIds((current) => new Set([...current, table.id]));
+  }
+
   function removeTable(tableId: string) {
     setState((current) => {
       if (current.tables.length <= 1) return current;
@@ -313,6 +334,7 @@ export function App() {
                   key={table.id}
                   isOpen={openTableEditorIds.has(table.id)}
                   onChange={(patch) => updateTable(table.id, patch)}
+                  onDuplicate={() => duplicateTable(table.id)}
                   onRemove={() => removeTable(table.id)}
                   onToggle={(isOpen) =>
                     setOpenTableEditorIds((current) => {
@@ -480,4 +502,16 @@ export function App() {
       )}
     </div>
   );
+}
+
+function createDuplicateTableName(name: string, tables: WeddingTable[]) {
+  const baseName = `${name} Copy`;
+  const existingNames = new Set(tables.map((table) => table.name.trim()));
+  if (!existingNames.has(baseName)) return baseName;
+
+  let copyNumber = 2;
+  while (existingNames.has(`${baseName} ${copyNumber}`)) {
+    copyNumber += 1;
+  }
+  return `${baseName} ${copyNumber}`;
 }
