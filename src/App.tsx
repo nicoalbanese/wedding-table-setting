@@ -1,5 +1,5 @@
-import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Copy, Plus, Share2 } from "lucide-react";
 
 import { GuestChip } from "@/components/guest-chip";
 import { GuestEditModal } from "@/components/guest-edit-modal";
@@ -43,6 +43,9 @@ export function App() {
   const [csvText, setCsvText] = useState("");
   const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", dietary: "" });
   const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() => new Set());
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
 
   const seats = useMemo(() => state.tables.flatMap(createSeatsForTable), [state.tables]);
   const seatById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats]);
@@ -69,6 +72,13 @@ export function App() {
   useEffect(() => {
     setState((current) => sanitizeAssignments(current));
   }, [seats]);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+
+    setShareUrl(createShareUrl(state));
+    setShareCopied(false);
+  }, [shareOpen, state]);
 
   function updateTable(tableId: string, patch: Partial<WeddingTable>) {
     setState((current) =>
@@ -319,6 +329,23 @@ export function App() {
     if (guestId) assignGuestToSeat(guestId, seatId);
   }
 
+  async function copyShareLink(input: HTMLInputElement | null) {
+    const url = createShareUrl(state);
+    setShareUrl(url);
+    let didCopy = false;
+
+    try {
+      await navigator.clipboard.writeText(url);
+      didCopy = true;
+    } catch {
+      input?.focus();
+      input?.select();
+      didCopy = document.execCommand("copy");
+    }
+
+    setShareCopied(didCopy);
+  }
+
   const modalSeat = seatModal ? seatById.get(seatModal.seatId) : undefined;
   const modalTable = modalSeat ? state.tables.find((table) => table.id === modalSeat.tableId) : undefined;
   const modalAssignedGuest = modalSeat ? guestById.get(state.assignments[modalSeat.id]) : undefined;
@@ -445,8 +472,10 @@ export function App() {
         </Sidebar>
 
         <SidebarInset className="max-h-screen overflow-auto bg-canvas p-4 lg:p-5 max-lg:max-h-none md:peer-data-[collapsible=offcanvas]:ml-0">
-          <div className="mb-5 flex items-start justify-center gap-3">
-            <FloatingSidebarTrigger />
+          <div className="mb-5 grid items-start gap-3 md:grid-cols-[1fr_minmax(0,48rem)_1fr]">
+            <div className="flex min-w-0 justify-start">
+              <FloatingSidebarTrigger />
+            </div>
             <div
               className="grid w-full max-w-3xl grid-cols-4 items-stretch overflow-hidden rounded-lg border border-border bg-background/80 max-md:max-w-none max-sm:grid-cols-2"
               aria-label="Plan status"
@@ -456,6 +485,17 @@ export function App() {
               <Stat label="Guests" value={state.guests.length} />
               <Stat label="Open" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
             </div>
+            <ShareControl
+              copied={shareCopied}
+              isOpen={shareOpen}
+              onCopy={copyShareLink}
+              onToggle={() => {
+                setShareOpen((current) => !current);
+                setShareUrl(createShareUrl(state));
+                setShareCopied(false);
+              }}
+              url={shareUrl || createShareUrl(state)}
+            />
           </div>
 
           <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2 2xl:grid-cols-3">
@@ -512,7 +552,46 @@ function FloatingSidebarTrigger() {
   const { isMobile, open, openMobile } = useSidebar();
   if (isMobile ? openMobile : open) return null;
 
-  return <SidebarTrigger className="sticky top-4 z-30 flex-none bg-background shadow-sm md:fixed md:top-4 md:left-4" />;
+  return <SidebarTrigger className="sticky top-4 z-30 flex-none bg-background shadow-sm [&>svg]:size-3.5 md:fixed md:top-4 md:left-4" />;
+}
+
+function ShareControl({
+  copied,
+  isOpen,
+  onCopy,
+  onToggle,
+  url,
+}: {
+  copied: boolean;
+  isOpen: boolean;
+  onCopy: (input: HTMLInputElement | null) => void;
+  onToggle: () => void;
+  url: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="relative flex min-w-0 justify-end">
+      <Button aria-expanded={isOpen} aria-label="Share this plan" size="icon" type="button" variant="outline" onClick={onToggle}>
+        <Share2 aria-hidden="true" className="size-3.5" />
+      </Button>
+      {isOpen ? (
+        <div className="absolute top-11 right-0 z-30 grid w-[min(22rem,calc(100vw-2rem))] gap-2 rounded-lg border border-border bg-background p-3 shadow-xl md:top-[4.5rem]">
+          <Input aria-label="Share link" readOnly ref={inputRef} value={url} onFocus={(event) => event.currentTarget.select()} />
+          <Button className="w-full" type="button" onClick={() => onCopy(inputRef.current)}>
+            {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
+            {copied ? "Copied" : "Copy link"}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function createShareUrl(state: PlannerState) {
+  const url = new URL(window.location.href);
+  url.searchParams.set(STATE_QUERY_KEY, encodeState(state));
+  return url.href;
 }
 
 function createDuplicateTableName(name: string, tables: WeddingTable[]) {
