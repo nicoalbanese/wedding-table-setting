@@ -1,4 +1,7 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { Download, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 type TableShape = "round" | "rectangular";
 type SeatSide = "top" | "right" | "bottom" | "left" | "ring";
@@ -461,9 +464,10 @@ export function App() {
                   table={table}
                 />
               ))}
-              <button className="add-table-button" type="button" onClick={addTable}>
-                + Add Table
-              </button>
+              <Button className="add-table-button" type="button" variant="outline" onClick={addTable}>
+                <Plus aria-hidden="true" />
+                Add Table
+              </Button>
             </div>
           </section>
 
@@ -491,9 +495,9 @@ export function App() {
                 value={newGuest.dietary}
                 onChange={(event) => setNewGuest({ ...newGuest, dietary: event.target.value })}
               />
-              <button className="button primary" type="submit">
+              <Button type="submit">
                 Add Guest
-              </button>
+              </Button>
             </form>
             <datalist id="guest-groups">
               {groups.map((group) => (
@@ -511,9 +515,9 @@ export function App() {
                 value={csvText}
                 onChange={(event) => setCsvText(event.target.value)}
               />
-              <button className="button secondary" type="button" onClick={importGuestsFromCsv}>
+              <Button type="button" variant="secondary" onClick={importGuestsFromCsv}>
                 Import Guests
-              </button>
+              </Button>
             </div>
           </section>
 
@@ -522,9 +526,9 @@ export function App() {
               <h2>Unseated</h2>
               <span>{unseatedGuests.length}</span>
             </div>
-            <button className="button primary full" type="button" onClick={autoSeatByGroup} disabled={unseatedGuests.length === 0}>
+            <Button className="mb-3 w-full" type="button" onClick={autoSeatByGroup} disabled={unseatedGuests.length === 0}>
               Seat by Group
-            </button>
+            </Button>
             <div className="guest-list">
               {unseatedGuests.length === 0 ? (
                 <p className="empty-copy">All guests have seats.</p>
@@ -546,12 +550,14 @@ export function App() {
               <Stat label="Open" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
             </div>
             <div className="canvas-actions">
-              <button className="button secondary" type="button" onClick={exportCsv}>
+              <Button className="flex-1 sm:flex-none" type="button" variant="secondary" onClick={exportCsv}>
+                <Download aria-hidden="true" />
                 Export CSV
-              </button>
-              <button className="button danger" type="button" onClick={resetPlanner}>
+              </Button>
+              <Button className="flex-1 sm:flex-none" type="button" variant="destructive" onClick={resetPlanner}>
+                <RotateCcw aria-hidden="true" />
                 Reset
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -581,9 +587,9 @@ export function App() {
                 <p className="eyebrow">{modalTable?.name}</p>
                 <h2>{modalSeat.label}</h2>
               </div>
-              <button className="icon-button" type="button" aria-label="Close" onClick={() => setSeatModal(null)}>
-                x
-              </button>
+              <Button className="icon-button" type="button" aria-label="Close" size="icon" variant="ghost" onClick={() => setSeatModal(null)}>
+                <X aria-hidden="true" />
+              </Button>
             </div>
             {modalAssignedGuest && (
               <div className="current-seat">
@@ -593,17 +599,18 @@ export function App() {
                 </span>
                 <DietaryBadges dietary={modalAssignedGuest.dietary} />
                 <div className="current-seat-actions">
-                  <button
-                    className="button secondary"
+                  <Button
+                    variant="secondary"
                     type="button"
                     aria-label={`Edit ${modalAssignedGuest.name}`}
                     onClick={() => openGuestEditor(modalAssignedGuest)}
                   >
+                    <Pencil aria-hidden="true" />
                     Edit
-                  </button>
-                  <button className="button secondary" type="button" onClick={() => clearSeat(modalSeat.id)}>
+                  </Button>
+                  <Button variant="secondary" type="button" onClick={() => clearSeat(modalSeat.id)}>
                     Clear Seat
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -649,9 +656,9 @@ export function App() {
                 <p className="eyebrow">Guest details</p>
                 <h2>Edit guest</h2>
               </div>
-              <button className="icon-button" type="button" aria-label="Close" onClick={() => setGuestModal(null)}>
-                x
-              </button>
+              <Button className="icon-button" type="button" aria-label="Close" size="icon" variant="ghost" onClick={() => setGuestModal(null)}>
+                <X aria-hidden="true" />
+              </Button>
             </div>
             <div className="guest-edit-fields">
               <label className="field">
@@ -679,12 +686,12 @@ export function App() {
               </label>
             </div>
             <div className="modal-actions">
-              <button className="button secondary" type="button" onClick={() => setGuestModal(null)}>
+              <Button type="button" variant="secondary" onClick={() => setGuestModal(null)}>
                 Cancel
-              </button>
-              <button className="button primary" type="submit" disabled={!guestModal.name.trim()}>
+              </Button>
+              <Button type="submit" disabled={!guestModal.name.trim()}>
                 Save Changes
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -714,7 +721,7 @@ function TableEditor({
         <span>{table.name}</span>
         <div className="table-summary-actions">
           <em>{createSeatsForTable(table).length} seats</em>
-          <button
+          <Button
             aria-label={`Remove ${table.name}`}
             className="remove-table-button"
             disabled={!canRemove}
@@ -723,10 +730,12 @@ function TableEditor({
               event.stopPropagation();
               onRemove();
             }}
+            size="icon"
             type="button"
+            variant="ghost"
           >
-            x
-          </button>
+            <X aria-hidden="true" />
+          </Button>
         </div>
       </summary>
       <div className="editor-fields">
@@ -816,9 +825,9 @@ function TableView({
           <span>
             {assignedCount}/{seats.length}
           </span>
-          <button className="table-reset-button" type="button" onClick={onClearTable} disabled={assignedCount === 0}>
+          <Button className="table-reset-button" type="button" variant="destructive" onClick={onClearTable} disabled={assignedCount === 0}>
             Unseat Table
-          </button>
+          </Button>
         </div>
       </div>
       {table.shape === "round" ? (
@@ -974,12 +983,13 @@ function GuestChip({
         {guest.group ? <small>{guest.group}</small> : null}
       </span>
       <DietaryBadges dietary={guest.dietary} />
-      <button className="guest-edit-button" type="button" aria-label={`Edit ${guest.name}`} onClick={() => onEdit(guest)}>
+      <Button className="guest-edit-button" type="button" size="sm" variant="ghost" aria-label={`Edit ${guest.name}`} onClick={() => onEdit(guest)}>
+        <Pencil aria-hidden="true" />
         Edit
-      </button>
-      <button type="button" aria-label={`Remove ${guest.name}`} onClick={() => onRemove(guest.id)}>
-        x
-      </button>
+      </Button>
+      <Button type="button" size="icon" variant="ghost" aria-label={`Remove ${guest.name}`} onClick={() => onRemove(guest.id)}>
+        <Trash2 aria-hidden="true" />
+      </Button>
     </div>
   );
 }
