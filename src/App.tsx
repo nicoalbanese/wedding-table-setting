@@ -8,6 +8,9 @@ import { Stat } from "@/components/stat";
 import { TableEditor } from "@/components/table-editor";
 import { TableView } from "@/components/table-view";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { STATE_QUERY_KEY, starterState } from "@/planner/constants";
 import type { Guest, GuestEditModalState, NewGuestForm, PlannerState, SeatModalState, WeddingTable } from "@/planner/types";
 import {
@@ -341,18 +344,18 @@ export function App() {
               </span>
             </div>
             <form className="guest-form" onSubmit={addGuest}>
-              <input
+              <Input
                 placeholder="Name"
                 value={newGuest.name}
                 onChange={(event) => setNewGuest({ ...newGuest, name: event.target.value })}
               />
-              <input
+              <Input
                 placeholder="Group"
                 list="guest-groups"
                 value={newGuest.group}
                 onChange={(event) => setNewGuest({ ...newGuest, group: event.target.value })}
               />
-              <input
+              <Input
                 placeholder="Dietary"
                 value={newGuest.dietary}
                 onChange={(event) => setNewGuest({ ...newGuest, dietary: event.target.value })}
@@ -365,11 +368,11 @@ export function App() {
               ))}
             </datalist>
             <div className="csv-import">
-              <label className="file-input">
-                <input accept=".csv,text/csv" type="file" onChange={handleCsvFile} />
+              <Label className="file-input">
+                <Input accept=".csv,text/csv" type="file" onChange={handleCsvFile} />
                 Choose CSV
-              </label>
-              <textarea
+              </Label>
+              <Textarea
                 rows={4}
                 placeholder="name,group,dietary&#10;Alice Smith,Family,Vegetarian"
                 value={csvText}

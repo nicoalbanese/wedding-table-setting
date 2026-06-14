@@ -6,9 +6,15 @@
   --color-foreground: #211f1a;
   --color-primary: #2b7567;
   --color-primary-foreground: #ffffff;
+  --color-secondary: #ffffff;
+  --color-secondary-foreground: #2f2d29;
   --color-accent: #f7f4ed;
   --color-accent-foreground: #211f1a;
   --color-border: #d8d1c2;
+  --color-input: #c7bda9;
+  --color-muted-foreground: #6f6a60;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #211f1a;
   --color-ring: #2b7567;
   --color-destructive: #8b2f20;
 }

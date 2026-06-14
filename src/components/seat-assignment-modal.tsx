@@ -1,7 +1,9 @@
-import { Pencil, X } from "lucide-react";
+import { Pencil } from "lucide-react";
 
 import { DietaryBadges } from "@/components/dietary-badges";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import type { Guest, Seat, SeatModalState, WeddingTable } from "@/planner/types";
 import { findSeatForGuest } from "@/planner/utils";
 
@@ -47,17 +49,14 @@ export function SeatAssignmentModal({
     .sort((a, b) => Number(seatedGuestIds.has(a.id)) - Number(seatedGuestIds.has(b.id)) || a.name.localeCompare(b.name));
 
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="modal-header">
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="modal" onOpenAutoFocus={(event) => event.preventDefault()}>
+        <DialogHeader className="modal-header">
           <div>
             <p className="eyebrow">{table?.name}</p>
-            <h2>{seat.label}</h2>
+            <DialogTitle>{seat.label}</DialogTitle>
           </div>
-          <Button className="icon-button" type="button" aria-label="Close" size="icon" variant="ghost" onClick={onClose}>
-            <X aria-hidden="true" />
-          </Button>
-        </div>
+        </DialogHeader>
         {assignedGuest && (
           <div className="current-seat">
             <span>
@@ -76,7 +75,7 @@ export function SeatAssignmentModal({
             </div>
           </div>
         )}
-        <input
+        <Input
           autoFocus
           className="search-input"
           placeholder="Search guests"
@@ -89,18 +88,20 @@ export function SeatAssignmentModal({
             const seatedSeat = seatedAt ? seatById.get(seatedAt) : undefined;
             const seatedTable = seatedSeat ? tables.find((candidate) => candidate.id === seatedSeat.tableId) : undefined;
             return (
-              <button className="guest-option" key={guest.id} type="button" onClick={() => onAssignGuest(guest.id, seat.id)}>
-                <span>
-                  {guest.name}
-                  {guest.group ? <small>{guest.group}</small> : null}
-                </span>
-                <DietaryBadges dietary={guest.dietary} />
-                <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
-              </button>
+              <Button asChild className="guest-option" key={guest.id} variant="ghost">
+                <button type="button" onClick={() => onAssignGuest(guest.id, seat.id)}>
+                  <span>
+                    {guest.name}
+                    {guest.group ? <small>{guest.group}</small> : null}
+                  </span>
+                  <DietaryBadges dietary={guest.dietary} />
+                  <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
+                </button>
+              </Button>
             );
           })}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

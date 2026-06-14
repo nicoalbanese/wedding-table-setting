@@ -2,6 +2,7 @@ import type { DragEvent } from "react";
 
 import { SeatButton } from "@/components/seat-button";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type { Guest, WeddingTable } from "@/planner/types";
 import { createSeatsForTable, getRoundSeatStyle } from "@/planner/utils";
 
@@ -34,7 +35,7 @@ export function TableView({
   return (
     <article className={`table-card ${table.shape}`}>
       <div className="table-title">
-        <input
+        <Input
           aria-label={`Name for ${table.name}`}
           className="table-name-input"
           value={table.name}

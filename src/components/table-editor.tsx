@@ -1,6 +1,9 @@
 import { X } from "lucide-react";
 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { TableShape, WeddingTable } from "@/planner/types";
 import { clamp, createSeatsForTable } from "@/planner/utils";
 
@@ -43,29 +46,34 @@ export function TableEditor({
         </div>
       </summary>
       <div className="editor-fields">
-        <label className="field">
+        <Label className="field">
           <span>Name</span>
-          <input value={table.name} onChange={(event) => onChange({ name: event.target.value })} />
-        </label>
-        <label className="field">
+          <Input value={table.name} onChange={(event) => onChange({ name: event.target.value })} />
+        </Label>
+        <Label className="field">
           <span>Type</span>
-          <select value={table.shape} onChange={(event) => onChange({ shape: event.target.value as TableShape })}>
-            <option value="round">Round</option>
-            <option value="rectangular">Rectangular</option>
-          </select>
-        </label>
+          <Select value={table.shape} onValueChange={(value) => onChange({ shape: value as TableShape })}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="round">Round</SelectItem>
+              <SelectItem value="rectangular">Rectangular</SelectItem>
+            </SelectContent>
+          </Select>
+        </Label>
 
         {table.shape === "round" ? (
-          <label className="field">
+          <Label className="field">
             <span>Total seats</span>
-            <input
+            <Input
               min={1}
               max={24}
               type="number"
               value={table.roundSeats}
               onChange={(event) => onChange({ roundSeats: clamp(Number(event.target.value), 1, 24) })}
             />
-          </label>
+          </Label>
         ) : (
           <div className="side-grid">
             <NumberField label="Top" value={table.topSeats} onChange={(topSeats) => onChange({ topSeats })} />
@@ -81,9 +89,9 @@ export function TableEditor({
 
 function NumberField({ label, onChange, value }: { label: string; onChange: (value: number) => void; value: number }) {
   return (
-    <label className="field compact">
+    <Label className="field compact">
       <span>{label}</span>
-      <input min={0} max={20} type="number" value={value} onChange={(event) => onChange(clamp(Number(event.target.value), 0, 20))} />
-    </label>
+      <Input min={0} max={20} type="number" value={value} onChange={(event) => onChange(clamp(Number(event.target.value), 0, 20))} />
+    </Label>
   );
 }
