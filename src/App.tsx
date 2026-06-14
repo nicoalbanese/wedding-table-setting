@@ -7,7 +7,12 @@ type Guest = {
   id: string;
   name: string;
   group: string;
-  notes: string;
+  dietary: string;
+};
+
+type LegacyGuest = Omit<Guest, "dietary"> & {
+  dietary?: string;
+  notes?: string;
 };
 
 type WeddingTable = {
@@ -35,6 +40,17 @@ type PlannerState = {
   assignments: Record<string, string>;
 };
 
+type LegacyPlannerState = Omit<PlannerState, "guests"> & {
+  guests: LegacyGuest[];
+};
+
+type DietaryBadgeDefinition = {
+  code: string;
+  label: string;
+  className: string;
+  patterns: RegExp[];
+};
+
 type SeatModalState = {
   seatId: string;
   query: string;
@@ -43,10 +59,61 @@ type SeatModalState = {
 type NewGuestForm = {
   name: string;
   group: string;
-  notes: string;
+  dietary: string;
 };
 
 const STATE_QUERY_KEY = "state";
+
+const dietaryBadgeDefinitions: DietaryBadgeDefinition[] = [
+  {
+    code: "Ve",
+    label: "Vegetarian",
+    className: "vegetarian",
+    patterns: [/\bvegetarian\b/i, /\bveggie\b/i, /^ve$/i],
+  },
+  {
+    code: "Vg",
+    label: "Vegan",
+    className: "vegan",
+    patterns: [/\bvegan\b/i, /^vg$/i],
+  },
+  {
+    code: "Ce",
+    label: "Celiac",
+    className: "celiac",
+    patterns: [/\bceliac\b/i, /\bcoeliac\b/i, /^ce$/i],
+  },
+  {
+    code: "GF",
+    label: "Gluten free",
+    className: "gluten-free",
+    patterns: [/\bgluten[-\s]?free\b/i, /\bno gluten\b/i],
+  },
+  {
+    code: "Nu",
+    label: "Nut allergy",
+    className: "nut",
+    patterns: [/\bnut allergy\b/i, /\bnuts?\b/i, /\bpeanut\b/i],
+  },
+  {
+    code: "Da",
+    label: "Dairy free",
+    className: "dairy",
+    patterns: [/\bdairy[-\s]?free\b/i, /\bno dairy\b/i, /\blactose\b/i],
+  },
+  {
+    code: "Ha",
+    label: "Halal",
+    className: "halal",
+    patterns: [/\bhalal\b/i],
+  },
+  {
+    code: "Ko",
+    label: "Kosher",
+    className: "kosher",
+    patterns: [/\bkosher\b/i],
+  },
+];
 
 const starterState: PlannerState = {
   tables: [
@@ -79,7 +146,7 @@ export function App() {
   const [state, setState] = useState<PlannerState>(() => loadStateFromUrl() ?? starterState);
   const [seatModal, setSeatModal] = useState<SeatModalState>(null);
   const [csvText, setCsvText] = useState("");
-  const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", notes: "" });
+  const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", dietary: "" });
   const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() =>
     new Set(state.tables[0] ? [state.tables[0].id] : []),
   );
@@ -160,10 +227,10 @@ export function App() {
       id: createId("guest"),
       name,
       group: newGuest.group.trim(),
-      notes: newGuest.notes.trim(),
+      dietary: newGuest.dietary.trim(),
     };
     setState((current) => ({ ...current, guests: [...current.guests, guest] }));
-    setNewGuest({ name: "", group: newGuest.group, notes: "" });
+    setNewGuest({ name: "", group: newGuest.group, dietary: "" });
   }
 
   function importGuestsFromCsv() {
@@ -287,12 +354,12 @@ export function App() {
   }
 
   function exportCsv() {
-    const rows = [["guest", "group", "notes", "table", "seat"]];
+    const rows = [["guest", "group", "dietary", "table", "seat"]];
     for (const guest of state.guests) {
       const seatId = findSeatForGuest(state.assignments, guest.id);
       const seat = seatId ? seatById.get(seatId) : undefined;
       const table = seat ? state.tables.find((item) => item.id === seat.tableId) : undefined;
-      rows.push([guest.name, guest.group, guest.notes, table?.name ?? "", seat?.label ?? ""]);
+      rows.push([guest.name, guest.group, guest.dietary, table?.name ?? "", seat?.label ?? ""]);
     }
     const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -317,7 +384,7 @@ export function App() {
     .filter((guest) => {
       const query = seatModal?.query.trim().toLowerCase() ?? "";
       if (!query) return true;
-      return [guest.name, guest.group, guest.notes].some((value) => value.toLowerCase().includes(query));
+      return [guest.name, guest.group, guest.dietary].some((value) => value.toLowerCase().includes(query));
     })
     .sort((a, b) => Number(seatedGuestIds.has(a.id)) - Number(seatedGuestIds.has(b.id)) || a.name.localeCompare(b.name));
 
@@ -378,9 +445,9 @@ export function App() {
                 onChange={(event) => setNewGuest({ ...newGuest, group: event.target.value })}
               />
               <input
-                placeholder="Notes"
-                value={newGuest.notes}
-                onChange={(event) => setNewGuest({ ...newGuest, notes: event.target.value })}
+                placeholder="Dietary"
+                value={newGuest.dietary}
+                onChange={(event) => setNewGuest({ ...newGuest, dietary: event.target.value })}
               />
               <button className="button primary" type="submit">
                 Add Guest
@@ -398,7 +465,7 @@ export function App() {
               </label>
               <textarea
                 rows={4}
-                placeholder="name,group,notes&#10;Alice Smith,Family,Vegetarian"
+                placeholder="name,group,dietary&#10;Alice Smith,Family,Vegetarian"
                 value={csvText}
                 onChange={(event) => setCsvText(event.target.value)}
               />
@@ -480,6 +547,7 @@ export function App() {
                   {modalAssignedGuest.name}
                   {modalAssignedGuest.group ? <small>{modalAssignedGuest.group}</small> : null}
                 </span>
+                <DietaryBadges dietary={modalAssignedGuest.dietary} />
                 <button className="button secondary" type="button" onClick={() => clearSeat(modalSeat.id)}>
                   Clear Seat
                 </button>
@@ -503,6 +571,7 @@ export function App() {
                       {guest.name}
                       {guest.group ? <small>{guest.group}</small> : null}
                     </span>
+                    <DietaryBadges dietary={guest.dietary} />
                     <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
                   </button>
                 );
@@ -755,10 +824,11 @@ function SeatButton({
       }}
       onDrop={(event) => onDrop(event, seat.id)}
       style={style}
-      title={guest ? `${guest.name} - ${seat.label}` : seat.label}
+      title={guest ? [guest.name, seat.label, guest.dietary].filter(Boolean).join(" - ") : seat.label}
       type="button"
     >
-      <span>{guest?.name ?? "+"}</span>
+      <span className="seat-name">{guest?.name ?? "+"}</span>
+      {guest ? <DietaryBadges dietary={guest.dietary} compact /> : null}
       {guest && (
         <em
           onClick={(event) => {
@@ -786,6 +856,7 @@ function GuestChip({ guest, onRemove }: { guest: Guest; onRemove: (guestId: stri
         {guest.name}
         {guest.group ? <small>{guest.group}</small> : null}
       </span>
+      <DietaryBadges dietary={guest.dietary} />
       <button type="button" aria-label={`Remove ${guest.name}`} onClick={() => onRemove(guest.id)}>
         x
       </button>
@@ -798,6 +869,21 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="metric">
       <strong>{value}</strong>
       <span>{label}</span>
+    </div>
+  );
+}
+
+function DietaryBadges({ compact = false, dietary }: { compact?: boolean; dietary: string }) {
+  const badges = getDietaryBadges(dietary);
+  if (badges.length === 0) return null;
+
+  return (
+    <div className={`dietary-badges ${compact ? "compact" : ""}`} aria-label={`Dietary: ${dietary}`}>
+      {badges.slice(0, compact ? 2 : 4).map((badge) => (
+        <span className={`dietary-badge ${badge.className}`} key={badge.code} title={dietary.trim()}>
+          {badge.code}
+        </span>
+      ))}
     </div>
   );
 }
@@ -885,23 +971,67 @@ function groupGuests(guests: Guest[]) {
     .map(([, groupGuests]) => groupGuests.sort((a, b) => a.name.localeCompare(b.name)));
 }
 
+function getDietaryBadges(dietary: string) {
+  const value = dietary.trim();
+  if (!value) return [];
+
+  const matchesByCode = new Map<string, Omit<DietaryBadgeDefinition, "patterns">>();
+  const dietaryParts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  let hasUnmatchedPart = false;
+
+  for (const part of dietaryParts.length > 0 ? dietaryParts : [value]) {
+    const partMatches = dietaryBadgeDefinitions.filter((definition) => definition.patterns.some((pattern) => pattern.test(part)));
+    if (partMatches.length === 0) {
+      hasUnmatchedPart = true;
+    }
+    for (const match of partMatches) {
+      matchesByCode.set(match.code, match);
+    }
+  }
+
+  const matches = [...matchesByCode.values()];
+  if (matches.length > 0 && !hasUnmatchedPart) return matches;
+  if (matches.length > 0 && hasUnmatchedPart) {
+    return [
+      ...matches,
+      {
+        code: "Di",
+        label: "Dietary note",
+        className: "other",
+      },
+    ];
+  }
+
+  return [
+    {
+      code: "Di",
+      label: "Dietary note",
+      className: "other",
+    },
+  ];
+}
+
 function parseGuestsCsv(text: string): Omit<Guest, "id">[] {
   const rows = parseCsvRows(text).filter((row) => row.some((cell) => cell.trim()));
   if (rows.length === 0) return [];
 
   const firstRow = rows[0].map((cell) => cell.trim().toLowerCase());
   const hasHeaders = firstRow.includes("name");
-  const headers = hasHeaders ? firstRow : ["name", "group", "notes"];
+  const headers = hasHeaders ? firstRow : ["name", "group", "dietary"];
   const dataRows = hasHeaders ? rows.slice(1) : rows;
   const nameIndex = Math.max(0, headers.indexOf("name"));
   const groupIndex = headers.indexOf("group");
+  const dietaryIndex = headers.indexOf("dietary");
   const notesIndex = headers.indexOf("notes");
 
   return dataRows
     .map((row) => ({
       name: row[nameIndex]?.trim() ?? "",
       group: groupIndex >= 0 ? row[groupIndex]?.trim() ?? "" : "",
-      notes: notesIndex >= 0 ? row[notesIndex]?.trim() ?? "" : "",
+      dietary: dietaryIndex >= 0 ? row[dietaryIndex]?.trim() ?? "" : notesIndex >= 0 ? row[notesIndex]?.trim() ?? "" : "",
     }))
     .filter((guest) => guest.name);
 }
@@ -956,12 +1086,22 @@ function decodeState(encoded: string): PlannerState | null {
     const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
     const binary = atob(padded);
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as PlannerState;
+    const parsed = JSON.parse(new TextDecoder().decode(bytes)) as LegacyPlannerState;
     if (!Array.isArray(parsed.tables) || !Array.isArray(parsed.guests) || typeof parsed.assignments !== "object") return null;
-    return sanitizeAssignments(parsed);
+    return sanitizeAssignments(normalizePlannerState(parsed));
   } catch {
     return null;
   }
+}
+
+function normalizePlannerState(state: LegacyPlannerState): PlannerState {
+  return {
+    ...state,
+    guests: state.guests.map(({ notes, ...guest }) => ({
+      ...guest,
+      dietary: guest.dietary ?? notes ?? "",
+    })),
+  };
 }
 
 function loadStateFromUrl() {

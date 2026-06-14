@@ -390,7 +390,7 @@ textarea:focus {
   border-radius: 8px;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) auto 34px;
   min-height: 56px;
   padding: 9px 9px 9px 12px;
   transition:
@@ -405,24 +405,101 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
-.guest-chip span,
-.guest-option span,
-.current-seat span {
+.guest-chip > span,
+.guest-option > span,
+.current-seat > span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.guest-chip small,
-.guest-option small,
-.current-seat small {
+.guest-chip > span small,
+.guest-option > span small,
+.current-seat > span small {
   color: var(--text-muted);
   display: block;
   font-size: 12px;
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dietary-badges {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.dietary-badge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  letter-spacing: 0;
+  line-height: 1;
+  min-width: 30px;
+  padding: 0 5px;
+  text-transform: uppercase;
+}
+
+.dietary-badges.compact {
+  gap: 2px;
+  justify-content: center;
+}
+
+.dietary-badges.compact .dietary-badge {
+  border-radius: 4px;
+  font-size: 11px;
+  height: 18px;
+  min-width: 24px;
+  padding: 0 4px;
+}
+
+.dietary-badge.vegetarian,
+.dietary-badge.vegan {
+  background: #0f7a45;
+  border-color: #095f35;
+  color: #ffffff;
+}
+
+.dietary-badge.celiac,
+.dietary-badge.gluten-free {
+  background: #1559b7;
+  border-color: #0f448f;
+  color: #ffffff;
+}
+
+.dietary-badge.nut {
+  background: #9a3412;
+  border-color: #7c2d12;
+  color: #ffffff;
+}
+
+.dietary-badge.dairy {
+  background: #6d28d9;
+  border-color: #5b21b6;
+  color: #ffffff;
+}
+
+.dietary-badge.halal,
+.dietary-badge.kosher {
+  background: #0f766e;
+  border-color: #115e59;
+  color: #ffffff;
+}
+
+.dietary-badge.other {
+  background: #3f3f46;
+  border-color: #27272a;
+  color: #ffffff;
 }
 
 .guest-chip button,
@@ -632,14 +709,14 @@ textarea:focus {
   display: flex;
   gap: 8px;
   justify-content: center;
-  min-height: 48px;
+  min-height: 58px;
 }
 
 .middle-row {
   align-items: stretch;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(70px, 78px) minmax(120px, 1fr) minmax(70px, 78px);
+  grid-template-columns: minmax(82px, 90px) minmax(120px, 1fr) minmax(82px, 90px);
   min-height: 0;
 }
 
@@ -668,10 +745,12 @@ textarea:focus {
   border-radius: 8px;
   color: #665e4f;
   display: grid;
-  flex: 0 0 78px;
+  flex: 0 0 86px;
   font-size: 12px;
   font-weight: 780;
-  height: 48px;
+  gap: 3px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 58px;
   justify-items: center;
   line-height: 1.12;
   min-width: 0;
@@ -683,7 +762,7 @@ textarea:focus {
     box-shadow 150ms ease,
     transform 150ms ease,
     background 150ms ease;
-  width: 78px;
+  width: 86px;
 }
 
 .round-layout .seat {
@@ -697,7 +776,7 @@ textarea:focus {
   color: #332b1c;
 }
 
-.seat span {
+.seat .seat-name {
   display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
@@ -789,7 +868,7 @@ textarea:focus {
   color: #211f1a;
   display: grid;
   gap: 10px;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   min-height: 50px;
   padding: 9px 11px;
   text-align: left;
@@ -896,12 +975,12 @@ textarea:focus {
 
   .middle-row {
     gap: 8px;
-    grid-template-columns: minmax(66px, 70px) minmax(96px, 1fr) minmax(66px, 70px);
+    grid-template-columns: minmax(72px, 76px) minmax(96px, 1fr) minmax(72px, 76px);
   }
 
   .seat {
-    flex-basis: 70px;
-    width: 70px;
+    flex-basis: 74px;
+    width: 74px;
   }
 
   .guest-option {
