@@ -23,14 +23,18 @@ export function TableEditor({
   table: WeddingTable;
 }) {
   return (
-    <details className="table-editor" open={isOpen} onToggle={(event) => onToggle(event.currentTarget.open)}>
-      <summary>
-        <span>{table.name}</span>
-        <div className="table-summary-actions">
-          <em>{createSeatsForTable(table).length} seats</em>
+    <details
+      className="overflow-hidden rounded-lg border border-[#d8d1c2] bg-[#f7f4ed]"
+      open={isOpen}
+      onToggle={(event) => onToggle(event.currentTarget.open)}
+    >
+      <summary className="flex min-h-[42px] cursor-pointer items-center justify-between gap-2.5 px-3 py-[9px] transition-colors marker:hidden hover:bg-white [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0 overflow-hidden text-sm font-[780] text-ellipsis whitespace-nowrap">{table.name}</span>
+        <div className="flex flex-none items-center gap-2">
+          <em className="text-xs not-italic whitespace-nowrap text-[#6f6a60]">{createSeatsForTable(table).length} seats</em>
           <Button
             aria-label={`Remove ${table.name}`}
-            className="remove-table-button"
+            className="size-7 rounded-md border-[#d8d1c2] bg-white p-0 text-[#8b2f20] hover:border-[#e4b5aa] hover:bg-[#fff8f5] disabled:text-[#b8b1a5]"
             disabled={!canRemove}
             onClick={(event) => {
               event.preventDefault();
@@ -45,13 +49,13 @@ export function TableEditor({
           </Button>
         </div>
       </summary>
-      <div className="editor-fields">
-        <Label className="field">
-          <span>Name</span>
+      <div className="grid gap-2.5 border-t border-[#d8d1c2] bg-white p-3">
+        <Label className="grid gap-1.5">
+          <span className="text-xs font-bold text-[#504b42]">Name</span>
           <Input value={table.name} onChange={(event) => onChange({ name: event.target.value })} />
         </Label>
-        <Label className="field">
-          <span>Type</span>
+        <Label className="grid gap-1.5">
+          <span className="text-xs font-bold text-[#504b42]">Type</span>
           <Select value={table.shape} onValueChange={(value) => onChange({ shape: value as TableShape })}>
             <SelectTrigger className="w-full">
               <SelectValue />
@@ -64,8 +68,8 @@ export function TableEditor({
         </Label>
 
         {table.shape === "round" ? (
-          <Label className="field">
-            <span>Total seats</span>
+          <Label className="grid gap-1.5">
+            <span className="text-xs font-bold text-[#504b42]">Total seats</span>
             <Input
               min={1}
               max={24}
@@ -75,7 +79,7 @@ export function TableEditor({
             />
           </Label>
         ) : (
-          <div className="side-grid">
+          <div className="grid grid-cols-2 gap-2">
             <NumberField label="Top" value={table.topSeats} onChange={(topSeats) => onChange({ topSeats })} />
             <NumberField label="Right" value={table.rightSeats} onChange={(rightSeats) => onChange({ rightSeats })} />
             <NumberField label="Bottom" value={table.bottomSeats} onChange={(bottomSeats) => onChange({ bottomSeats })} />
@@ -89,9 +93,16 @@ export function TableEditor({
 
 function NumberField({ label, onChange, value }: { label: string; onChange: (value: number) => void; value: number }) {
   return (
-    <Label className="field compact">
-      <span>{label}</span>
-      <Input min={0} max={20} type="number" value={value} onChange={(event) => onChange(clamp(Number(event.target.value), 0, 20))} />
+    <Label className="grid gap-1.5">
+      <span className="text-xs font-bold text-[#504b42]">{label}</span>
+      <Input
+        className="min-h-[34px]"
+        min={0}
+        max={20}
+        type="number"
+        value={value}
+        onChange={(event) => onChange(clamp(Number(event.target.value), 0, 20))}
+      />
     </Label>
   );
 }

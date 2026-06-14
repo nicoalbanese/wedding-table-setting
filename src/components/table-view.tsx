@@ -33,26 +33,34 @@ export function TableView({
   const bottomSeats = seats.filter((seat) => seat.side === "bottom");
 
   return (
-    <article className={`table-card ${table.shape}`}>
-      <div className="table-title">
+    <article className="min-h-0 rounded-[10px] border border-[#d8d1c2] bg-[#fffdfa]/90 p-3.5 shadow-[0_18px_44px_rgba(45,39,28,0.08)] transition-[border-color,box-shadow] hover:border-[#c7bda9] hover:shadow-[0_20px_54px_rgba(45,39,28,0.1)]">
+      <div className="mb-3.5 flex items-center justify-between gap-3">
         <Input
           aria-label={`Name for ${table.name}`}
-          className="table-name-input"
+          className="h-[34px] w-auto flex-auto border-transparent bg-transparent px-[7px] py-[5px] text-[15px] font-[820] hover:border-[#d8d1c2] hover:bg-white"
           value={table.name}
           onChange={(event) => onRename(event.target.value)}
         />
-        <div className="table-actions">
-          <span>
+        <div className="flex flex-none items-center gap-2">
+          <span className="text-xs font-semibold text-[#6f6a60]">
             {assignedCount}/{seats.length}
           </span>
-          <Button className="table-reset-button" type="button" variant="destructive" onClick={onClearTable} disabled={assignedCount === 0}>
+          <Button
+            className="min-h-[30px] px-2 py-[5px] text-xs font-[780] disabled:border-[#d8d1c2] disabled:bg-[#f7f4ed] disabled:text-[#9b968c]"
+            type="button"
+            variant="destructive"
+            onClick={onClearTable}
+            disabled={assignedCount === 0}
+          >
             Unseat Table
           </Button>
         </div>
       </div>
       {table.shape === "round" ? (
-        <div className="round-layout">
-          <div className="round-table-label">Round</div>
+        <div className="relative mx-auto aspect-square min-h-[300px] max-w-[430px] max-sm:min-h-[280px]">
+          <div className="absolute top-1/2 left-1/2 flex h-[58%] w-[58%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#adc9b9] bg-[#dce8de] font-[860] text-[#1f5d52]">
+            Round
+          </div>
           {seats.map((seat, index) => (
             <SeatButton
               assignment={assignments[seat.id]}
@@ -67,9 +75,9 @@ export function TableView({
           ))}
         </div>
       ) : (
-        <div className="rectangle-layout">
+        <div className="grid min-h-0 gap-2.5">
           {topSeats.length > 0 && (
-            <div className="seat-row top">
+            <div className="flex min-h-[58px] justify-center gap-2">
               {topSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}
@@ -83,8 +91,8 @@ export function TableView({
               ))}
             </div>
           )}
-          <div className="middle-row">
-            <div className="seat-column">
+          <div className="grid min-h-0 grid-cols-[minmax(82px,90px)_minmax(120px,1fr)_minmax(82px,90px)] items-stretch gap-3 max-sm:grid-cols-[minmax(72px,76px)_minmax(96px,1fr)_minmax(72px,76px)] max-sm:gap-2">
+            <div className="grid content-center gap-2">
               {leftSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}
@@ -97,8 +105,10 @@ export function TableView({
                 />
               ))}
             </div>
-            <div className="rect-table-label">Table</div>
-            <div className="seat-column">
+            <div className="flex min-h-[170px] items-center justify-center rounded-[9px] border border-[#baaf99] bg-[#e4ddcd] font-[860] text-[#504833]">
+              Table
+            </div>
+            <div className="grid content-center gap-2">
               {rightSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}
@@ -113,7 +123,7 @@ export function TableView({
             </div>
           </div>
           {bottomSeats.length > 0 && (
-            <div className="seat-row bottom">
+            <div className="flex min-h-[58px] justify-center gap-2">
               {bottomSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}

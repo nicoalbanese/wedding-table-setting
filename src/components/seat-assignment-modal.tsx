@@ -50,26 +50,39 @@ export function SeatAssignmentModal({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="modal" onOpenAutoFocus={(event) => event.preventDefault()}>
-        <DialogHeader className="modal-header">
+      <DialogContent
+        className="max-h-[min(760px,calc(100vh-40px))] max-w-[560px] overflow-hidden rounded-[10px] border-0 bg-white p-[18px] shadow-[0_24px_80px_rgba(32,32,29,0.32)]"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        <DialogHeader className="flex-row items-center justify-between gap-3 text-left">
           <div>
-            <p className="eyebrow">{table?.name}</p>
-            <DialogTitle>{seat.label}</DialogTitle>
+            <p className="m-0 text-xs font-bold tracking-normal text-[#6f6a60] uppercase">{table?.name}</p>
+            <DialogTitle className="m-0 text-[15px] leading-tight">{seat.label}</DialogTitle>
           </div>
         </DialogHeader>
         {assignedGuest && (
-          <div className="current-seat">
-            <span>
+          <div className="mt-3.5 flex items-center justify-between gap-3 rounded-lg border border-[#dbc7a0] bg-[#fff8e8] p-2.5 max-sm:flex-col max-sm:items-stretch">
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
               {assignedGuest.name}
-              {assignedGuest.group ? <small>{assignedGuest.group}</small> : null}
+              {assignedGuest.group ? (
+                <small className="block overflow-hidden text-xs leading-tight text-ellipsis text-[#6f6a60]">
+                  {assignedGuest.group}
+                </small>
+              ) : null}
             </span>
             <DietaryBadges dietary={assignedGuest.dietary} />
-            <div className="current-seat-actions">
-              <Button variant="secondary" type="button" aria-label={`Edit ${assignedGuest.name}`} onClick={() => onEditGuest(assignedGuest)}>
+            <div className="flex flex-none gap-2 max-sm:w-full">
+              <Button
+                className="max-sm:flex-1"
+                variant="secondary"
+                type="button"
+                aria-label={`Edit ${assignedGuest.name}`}
+                onClick={() => onEditGuest(assignedGuest)}
+              >
                 <Pencil aria-hidden="true" />
                 Edit
               </Button>
-              <Button variant="secondary" type="button" onClick={() => onClearSeat(seat.id)}>
+              <Button className="max-sm:flex-1" variant="secondary" type="button" onClick={() => onClearSeat(seat.id)}>
                 Clear Seat
               </Button>
             </div>
@@ -77,25 +90,32 @@ export function SeatAssignmentModal({
         )}
         <Input
           autoFocus
-          className="search-input"
+          className="my-3.5"
           placeholder="Search guests"
           value={seatModal.query}
           onChange={(event) => onQueryChange(event.target.value)}
         />
-        <div className="modal-guest-list">
+        <div className="grid max-h-[430px] gap-2 overflow-auto pr-1">
           {modalGuests.map((guest) => {
             const seatedAt = findSeatForGuest(assignments, guest.id);
             const seatedSeat = seatedAt ? seatById.get(seatedAt) : undefined;
             const seatedTable = seatedSeat ? tables.find((candidate) => candidate.id === seatedSeat.tableId) : undefined;
             return (
-              <Button asChild className="guest-option" key={guest.id} variant="ghost">
+              <Button
+                asChild
+                className="grid min-h-[50px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2.5 rounded-lg border border-[#d8d1c2] bg-[#f7f4ed] px-[11px] py-[9px] text-left text-[#211f1a] hover:border-[#2b7567] hover:bg-white max-sm:grid-cols-1"
+                key={guest.id}
+                variant="ghost"
+              >
                 <button type="button" onClick={() => onAssignGuest(guest.id, seat.id)}>
-                  <span>
+                  <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
                     {guest.name}
-                    {guest.group ? <small>{guest.group}</small> : null}
+                    {guest.group ? <small className="block overflow-hidden text-xs leading-tight text-ellipsis text-[#6f6a60]">{guest.group}</small> : null}
                   </span>
                   <DietaryBadges dietary={guest.dietary} />
-                  <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
+                  <em className="text-xs not-italic whitespace-nowrap text-[#2b7567] max-sm:whitespace-normal">
+                    {seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}
+                  </em>
                 </button>
               </Button>
             );
