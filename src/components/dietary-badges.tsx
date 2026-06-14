@@ -14,7 +14,7 @@ const badgeClassNames: Record<string, string> = {
   other: "border-zinc-800 bg-zinc-700 text-white",
 };
 
-export function DietaryBadges({ compact = false, dietary }: { compact?: boolean; dietary: string }) {
+export function DietaryBadges({ className, compact = false, dietary }: { className?: string; compact?: boolean; dietary: string }) {
   const badges = getDietaryBadges(dietary);
   if (badges.length === 0) return null;
 
@@ -22,7 +22,8 @@ export function DietaryBadges({ compact = false, dietary }: { compact?: boolean;
     <div
       className={cn(
         "flex min-w-0 flex-wrap items-center justify-end gap-1",
-        compact && "justify-center gap-0.5",
+        compact && "flex-nowrap justify-center gap-0.5",
+        className,
       )}
       aria-label={`Dietary: ${dietary}`}
     >
@@ -30,7 +31,7 @@ export function DietaryBadges({ compact = false, dietary }: { compact?: boolean;
         <Badge
           className={cn(
             "h-6 min-w-8 rounded-md border px-1.5 py-0 text-xs leading-none font-black tracking-normal uppercase",
-            compact && "h-5 min-w-6 rounded px-1 text-xs",
+            compact && "h-4 min-w-5 rounded px-1 text-[10px]",
             badgeClassNames[badge.className] ?? badgeClassNames.other,
           )}
           key={badge.code}
