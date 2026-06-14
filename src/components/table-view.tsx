@@ -3,6 +3,7 @@ import type { DragEvent } from "react";
 import { SeatButton } from "@/components/seat-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { Messages } from "@/i18n";
 import type { Guest, WeddingTable } from "@/planner/types";
 import { createSeatsForTable, getRoundSeatStyle } from "@/planner/utils";
 
@@ -15,6 +16,7 @@ export function TableView({
   onOpenSeat,
   onSeatDrop,
   table,
+  t,
 }: {
   assignments: Record<string, string>;
   guestById: Map<string, Guest>;
@@ -24,20 +26,21 @@ export function TableView({
   onOpenSeat: (seatId: string) => void;
   onSeatDrop: (event: DragEvent<HTMLButtonElement>, seatId: string) => void;
   table: WeddingTable;
+  t: Messages;
 }) {
-  const seats = createSeatsForTable(table);
+  const seats = createSeatsForTable(table, t.seats);
   const assignedCount = seats.filter((seat) => assignments[seat.id]).length;
   const topSeats = seats.filter((seat) => seat.side === "top");
   const leftSeats = seats.filter((seat) => seat.side === "left");
   const rightSeats = seats.filter((seat) => seat.side === "right");
   const bottomSeats = seats.filter((seat) => seat.side === "bottom");
-  const tableName = table.name.trim() || "Table";
+  const tableName = table.name.trim() || t.defaults.table;
 
   return (
     <article className="min-h-0 rounded-lg border border-border bg-background/90 p-4 shadow-xl transition-all hover:border-input hover:shadow-2xl">
       <div className="mb-3.5 flex items-center justify-between gap-3">
         <Input
-          aria-label={`Name for ${table.name}`}
+          aria-label={t.aria.nameForTable(table.name)}
           className="h-9 w-auto flex-auto border-transparent bg-transparent px-2 py-1 text-sm font-extrabold hover:border-border hover:bg-background"
           value={table.name}
           onChange={(event) => onRename(event.target.value)}
@@ -53,7 +56,7 @@ export function TableView({
             onClick={onClearTable}
             disabled={assignedCount === 0}
           >
-            Unseat Table
+            {t.actions.unseatTable}
           </Button>
         </div>
       </div>
@@ -71,6 +74,7 @@ export function TableView({
               onDrop={onSeatDrop}
               onOpen={onOpenSeat}
               seat={seat}
+              t={t}
               style={getRoundSeatStyle(index, seats.length)}
             />
           ))}
@@ -88,6 +92,7 @@ export function TableView({
                   onDrop={onSeatDrop}
                   onOpen={onOpenSeat}
                   seat={seat}
+                  t={t}
                 />
               ))}
             </div>
@@ -103,6 +108,7 @@ export function TableView({
                   onDrop={onSeatDrop}
                   onOpen={onOpenSeat}
                   seat={seat}
+                  t={t}
                 />
               ))}
             </div>
@@ -119,6 +125,7 @@ export function TableView({
                   onDrop={onSeatDrop}
                   onOpen={onOpenSeat}
                   seat={seat}
+                  t={t}
                 />
               ))}
             </div>
@@ -134,6 +141,7 @@ export function TableView({
                   onDrop={onSeatDrop}
                   onOpen={onOpenSeat}
                   seat={seat}
+                  t={t}
                 />
               ))}
             </div>

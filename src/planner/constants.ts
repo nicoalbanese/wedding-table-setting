@@ -53,29 +53,33 @@ export const dietaryBadgeDefinitions: DietaryBadgeDefinition[] = [
   },
 ];
 
-export const starterState: PlannerState = {
-  tables: [
-    {
-      id: "table-1",
-      name: "Top Table",
-      shape: "rectangular",
-      roundSeats: 8,
-      topSeats: 0,
-      rightSeats: 6,
-      bottomSeats: 0,
-      leftSeats: 6,
-    },
-    {
-      id: "table-2",
-      name: "Table 2",
-      shape: "rectangular",
-      roundSeats: 8,
-      topSeats: 0,
-      rightSeats: 6,
-      bottomSeats: 0,
-      leftSeats: 6,
-    },
-  ],
-  guests: [],
-  assignments: {},
-};
+export function createStarterState(labels: { table: string; topTable: string }): PlannerState {
+  return {
+    tables: [
+      {
+        id: "table-1",
+        name: labels.topTable,
+        shape: "rectangular",
+        roundSeats: 8,
+        topSeats: 0,
+        rightSeats: 6,
+        bottomSeats: 0,
+        leftSeats: 6,
+      },
+      {
+        id: "table-2",
+        name: `${labels.table} 2`,
+        shape: "rectangular",
+        roundSeats: 8,
+        topSeats: 0,
+        rightSeats: 6,
+        bottomSeats: 0,
+        leftSeats: 6,
+      },
+    ],
+    guests: [],
+    assignments: {},
+  };
+}
+
+export const starterState: PlannerState = createStarterState({ table: "Table", topTable: "Top Table" });

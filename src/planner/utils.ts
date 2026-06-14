@@ -11,10 +11,26 @@ import type {
   WeddingTable,
 } from "@/planner/types";
 
-export function createDefaultTable(number: number): WeddingTable {
+export type SeatLabels = {
+  bottom: string;
+  left: string;
+  right: string;
+  seat: string;
+  top: string;
+};
+
+const defaultSeatLabels: SeatLabels = {
+  bottom: "Bottom",
+  left: "Left",
+  right: "Right",
+  seat: "Seat",
+  top: "Top",
+};
+
+export function createDefaultTable(number: number, tableLabel = "Table"): WeddingTable {
   return {
     id: createId("table"),
-    name: `Table ${number}`,
+    name: `${tableLabel} ${number}`,
     shape: "rectangular",
     roundSeats: 8,
     topSeats: 0,
@@ -24,22 +40,22 @@ export function createDefaultTable(number: number): WeddingTable {
   };
 }
 
-export function createSeatsForTable(table: WeddingTable): Seat[] {
+export function createSeatsForTable(table: WeddingTable, labels: SeatLabels = defaultSeatLabels): Seat[] {
   if (table.shape === "round") {
     return Array.from({ length: table.roundSeats }, (_, index) => ({
       id: `${table.id}:ring:${index + 1}`,
       tableId: table.id,
       side: "ring" as const,
       index: index + 1,
-      label: `Seat ${index + 1}`,
+      label: `${labels.seat} ${index + 1}`,
     }));
   }
 
   const seats: Seat[] = [];
-  addSideSeats(seats, table, "top", table.topSeats, "Top");
-  addSideSeats(seats, table, "left", table.leftSeats, "Left");
-  addSideSeats(seats, table, "right", table.rightSeats, "Right");
-  addSideSeats(seats, table, "bottom", table.bottomSeats, "Bottom");
+  addSideSeats(seats, table, "top", table.topSeats, labels.top);
+  addSideSeats(seats, table, "left", table.leftSeats, labels.left);
+  addSideSeats(seats, table, "right", table.rightSeats, labels.right);
+  addSideSeats(seats, table, "bottom", table.bottomSeats, labels.bottom);
   return seats;
 }
 
@@ -60,7 +76,7 @@ export function findSeatForGuest(assignments: Record<string, string>, guestId: s
 }
 
 export function sanitizeAssignments(state: PlannerState): PlannerState {
-  const validSeatIds = new Set(state.tables.flatMap(createSeatsForTable).map((seat) => seat.id));
+  const validSeatIds = new Set(state.tables.flatMap((table) => createSeatsForTable(table)).map((seat) => seat.id));
   const validGuestIds = new Set(state.guests.map((guest) => guest.id));
   const assignments: Record<string, string> = {};
   for (const [seatId, guestId] of Object.entries(state.assignments)) {
@@ -130,13 +146,13 @@ export function parseGuestsCsv(text: string): Omit<Guest, "id">[] {
   if (rows.length === 0) return [];
 
   const firstRow = rows[0].map((cell) => cell.trim().toLowerCase());
-  const hasHeaders = firstRow.includes("name");
+  const hasHeaders = findHeaderIndex(firstRow, ["name", "nome"]) >= 0;
   const headers = hasHeaders ? firstRow : ["name", "group", "dietary"];
   const dataRows = hasHeaders ? rows.slice(1) : rows;
-  const nameIndex = Math.max(0, headers.indexOf("name"));
-  const groupIndex = headers.indexOf("group");
-  const dietaryIndex = headers.indexOf("dietary");
-  const notesIndex = headers.indexOf("notes");
+  const nameIndex = Math.max(0, findHeaderIndex(headers, ["name", "nome"]));
+  const groupIndex = findHeaderIndex(headers, ["group", "gruppo"]);
+  const dietaryIndex = findHeaderIndex(headers, ["dietary", "diet", "dieta", "alimentazione", "restrizioni alimentari"]);
+  const notesIndex = findHeaderIndex(headers, ["notes", "note"]);
 
   return dataRows
     .map((row) => ({
@@ -145,6 +161,10 @@ export function parseGuestsCsv(text: string): Omit<Guest, "id">[] {
       dietary: dietaryIndex >= 0 ? row[dietaryIndex]?.trim() ?? "" : notesIndex >= 0 ? row[notesIndex]?.trim() ?? "" : "",
     }))
     .filter((guest) => guest.name);
+}
+
+function findHeaderIndex(headers: string[], aliases: string[]) {
+  return headers.findIndex((header) => aliases.includes(header));
 }
 
 export function encodeState(state: PlannerState) {

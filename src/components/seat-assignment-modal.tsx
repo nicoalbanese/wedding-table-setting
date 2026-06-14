@@ -4,6 +4,7 @@ import { DietaryBadges } from "@/components/dietary-badges";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { Messages } from "@/i18n";
 import type { Guest, Seat, SeatModalState, WeddingTable } from "@/planner/types";
 import { findSeatForGuest } from "@/planner/utils";
 
@@ -25,6 +26,7 @@ export function SeatAssignmentModal({
   seatModal,
   table,
   tables,
+  t,
 }: {
   assignedGuest?: Guest;
   assignments: Record<string, string>;
@@ -41,6 +43,7 @@ export function SeatAssignmentModal({
   seatModal: ActiveSeatModalState;
   table?: WeddingTable;
   tables: WeddingTable[];
+  t: Messages;
 }) {
   const query = seatModal.query.trim();
   const modalGuests = guests
@@ -79,14 +82,14 @@ export function SeatAssignmentModal({
                 className="max-sm:flex-1"
                 variant="secondary"
                 type="button"
-                aria-label={`Edit ${assignedGuest.name}`}
+                aria-label={t.aria.editGuest(assignedGuest.name)}
                 onClick={() => onEditGuest(assignedGuest)}
               >
                 <Pencil aria-hidden="true" />
-                Edit
+                {t.actions.edit}
               </Button>
               <Button className="max-sm:flex-1" variant="secondary" type="button" onClick={() => onClearSeat(seat.id)}>
-                Clear Seat
+                {t.actions.clearSeat}
               </Button>
             </div>
           </div>
@@ -94,7 +97,7 @@ export function SeatAssignmentModal({
         <Input
           autoFocus
           className="my-3.5"
-          placeholder="Search guests"
+          placeholder={t.fields.searchGuests}
           value={seatModal.query}
           onChange={(event) => onQueryChange(event.target.value)}
         />
@@ -119,7 +122,7 @@ export function SeatAssignmentModal({
                     <DietaryBadges dietary={guest.dietary} />
                   </div>
                   <em className="col-span-3 text-xs not-italic whitespace-nowrap text-primary max-sm:whitespace-normal">
-                    {seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}
+                    {seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : t.statuses.unseated}
                   </em>
                 </button>
               </Button>
@@ -127,10 +130,10 @@ export function SeatAssignmentModal({
           })}
           {modalGuests.length === 0 && query ? (
             <div className="grid gap-2 rounded-lg border border-dashed border-border bg-accent p-3">
-              <p className="m-0 text-sm text-muted-foreground">No guests found.</p>
+              <p className="m-0 text-sm text-muted-foreground">{t.empty.noGuestsFound}</p>
               <Button className="w-full justify-start" type="button" onClick={() => onCreateGuest(query, seat.id)}>
                 <Plus aria-hidden="true" />
-                Create "{query}"
+                {t.templates.createGuest(query)}
               </Button>
             </div>
           ) : null}

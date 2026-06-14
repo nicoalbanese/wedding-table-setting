@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { getDietaryBadges } from "@/planner/utils";
 
@@ -15,6 +16,7 @@ const badgeClassNames: Record<string, string> = {
 };
 
 export function DietaryBadges({ className, compact = false, dietary }: { className?: string; compact?: boolean; dietary: string }) {
+  const { t } = useI18n();
   const badges = getDietaryBadges(dietary);
   if (badges.length === 0) return null;
 
@@ -25,7 +27,7 @@ export function DietaryBadges({ className, compact = false, dietary }: { classNa
         compact && "flex-nowrap justify-center gap-0.5",
         className,
       )}
-      aria-label={`Dietary: ${dietary}`}
+      aria-label={`${t.fields.dietary}: ${dietary}`}
     >
       {badges.slice(0, compact ? 2 : 4).map((badge) => (
         <Badge

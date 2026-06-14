@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { DietaryBadges } from "@/components/dietary-badges";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useI18n } from "@/i18n";
 import type { Guest } from "@/planner/types";
 
 export function GuestChip({
@@ -14,6 +15,8 @@ export function GuestChip({
   onEdit: (guest: Guest) => void;
   onRemove: (guestId: string) => void;
 }) {
+  const { t } = useI18n();
+
   return (
     <Card
       className="!grid min-h-14 grid-cols-12 items-center gap-2.5 rounded-lg border-border bg-background py-2.5 pr-2.5 pl-3 shadow-none transition-all hover:border-primary hover:shadow-lg"
@@ -35,7 +38,7 @@ export function GuestChip({
           type="button"
           size="icon-sm"
           variant="outline"
-          aria-label={`Edit ${guest.name}`}
+          aria-label={t.aria.editGuest(guest.name)}
           onClick={() => onEdit(guest)}
         >
           <Pencil aria-hidden="true" />
@@ -45,7 +48,7 @@ export function GuestChip({
           type="button"
           size="icon-sm"
           variant="outline"
-          aria-label={`Remove ${guest.name}`}
+          aria-label={t.aria.removeGuest(guest.name)}
           onClick={() => onRemove(guest.id)}
         >
           <Trash2 aria-hidden="true" />

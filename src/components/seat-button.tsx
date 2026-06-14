@@ -1,6 +1,7 @@
 import type { CSSProperties, DragEvent } from "react";
 
 import { DietaryBadges } from "@/components/dietary-badges";
+import type { Messages } from "@/i18n";
 import { cn } from "@/lib/utils";
 import type { Guest, Seat } from "@/planner/types";
 
@@ -12,6 +13,7 @@ export function SeatButton({
   onOpen,
   seat,
   style,
+  t,
 }: {
   assignment?: string;
   guest?: Guest;
@@ -20,6 +22,7 @@ export function SeatButton({
   onOpen: (seatId: string) => void;
   seat: Seat;
   style?: CSSProperties;
+  t: Messages;
 }) {
   return (
     <button
@@ -45,6 +48,7 @@ export function SeatButton({
       {guest && (
         <em
           className="pointer-events-none absolute top-1 right-1 flex size-4 items-center justify-center rounded-full border border-amber-200 bg-background text-xs not-italic text-destructive opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 group-focus-visible:pointer-events-auto group-focus-visible:opacity-100"
+          title={t.actions.clearSeat}
           onClick={(event) => {
             event.stopPropagation();
             onClear(seat.id);

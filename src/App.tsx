@@ -1,5 +1,5 @@
 import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Plus, Share2 } from "lucide-react";
+import { Check, Copy, Languages, Plus, Share2 } from "lucide-react";
 
 import { GuestChip } from "@/components/guest-chip";
 import { GuestEditModal } from "@/components/guest-edit-modal";
@@ -22,7 +22,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
-import { STATE_QUERY_KEY, starterState } from "@/planner/constants";
+import { type Messages, useI18n } from "@/i18n";
+import { createStarterState, STATE_QUERY_KEY } from "@/planner/constants";
 import type { Guest, GuestEditModalState, NewGuestForm, PlannerState, SeatModalState, WeddingTable } from "@/planner/types";
 import {
   createDefaultTable,
@@ -37,7 +38,8 @@ import {
 } from "@/planner/utils";
 
 export function App() {
-  const [state, setState] = useState<PlannerState>(() => loadStateFromUrl() ?? starterState);
+  const { locale, setLocale, t } = useI18n();
+  const [state, setState] = useState<PlannerState>(() => loadStateFromUrl() ?? createStarterState(t.defaults));
   const [seatModal, setSeatModal] = useState<SeatModalState>(null);
   const [guestModal, setGuestModal] = useState<GuestEditModalState>(null);
   const [csvText, setCsvText] = useState("");
@@ -47,7 +49,7 @@ export function App() {
   const [shareUrl, setShareUrl] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
 
-  const seats = useMemo(() => state.tables.flatMap(createSeatsForTable), [state.tables]);
+  const seats = useMemo(() => state.tables.flatMap((table) => createSeatsForTable(table, t.seats)), [state.tables, t.seats]);
   const seatById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats]);
   const guestById = useMemo(() => new Map(state.guests.map((guest) => [guest.id, guest])), [state.guests]);
   const seatedGuestIds = useMemo(() => new Set(Object.values(state.assignments)), [state.assignments]);
@@ -90,7 +92,7 @@ export function App() {
   }
 
   function addTable() {
-    const table = createDefaultTable(state.tables.length + 1);
+    const table = createDefaultTable(state.tables.length + 1, t.defaults.table);
     setState((current) => ({ ...current, tables: [...current.tables, table] }));
     setOpenTableEditorIds((current) => new Set([...current, table.id]));
   }
@@ -102,7 +104,7 @@ export function App() {
     const table: WeddingTable = {
       ...source,
       id: createId("table"),
-      name: createDuplicateTableName(source.name, state.tables),
+      name: createDuplicateTableName(source.name, state.tables, t.defaults.copySuffix),
     };
 
     setState((current) => {
@@ -122,7 +124,7 @@ export function App() {
       const table = current.tables.find((item) => item.id === tableId);
       if (!table) return current;
 
-      const removedSeatIds = new Set(createSeatsForTable(table).map((seat) => seat.id));
+      const removedSeatIds = new Set(createSeatsForTable(table, t.seats).map((seat) => seat.id));
       const assignments = { ...current.assignments };
       for (const seatId of removedSeatIds) {
         delete assignments[seatId];
@@ -230,7 +232,7 @@ export function App() {
   function clearTable(tableId: string) {
     setState((current) => {
       const table = current.tables.find((item) => item.id === tableId);
-      const tableSeatIds = new Set(table ? createSeatsForTable(table).map((seat) => seat.id) : []);
+      const tableSeatIds = new Set(table ? createSeatsForTable(table, t.seats).map((seat) => seat.id) : []);
       if (tableSeatIds.size === 0) return current;
 
       const nextAssignments = { ...current.assignments };
@@ -290,7 +292,7 @@ export function App() {
 
   function autoSeatByGroup() {
     setState((current) => {
-      const allSeats = current.tables.flatMap(createSeatsForTable);
+      const allSeats = current.tables.flatMap((table) => createSeatsForTable(table, t.seats));
       const assignments = { ...current.assignments };
       const occupied = new Set(Object.keys(assignments));
       const assignedGuests = new Set(Object.values(assignments));
@@ -357,8 +359,8 @@ export function App() {
           <SidebarHeader className="border-b border-border bg-background p-2">
             <div className="flex min-h-10 items-center justify-between gap-2 px-2">
               <div className="min-w-0">
-                <h2 className="m-0 text-sm leading-tight font-semibold">Tables</h2>
-                <span className="text-xs font-semibold text-muted-foreground">{seats.length} seats</span>
+                <h2 className="m-0 text-sm leading-tight font-semibold">{t.sections.tables}</h2>
+                <span className="text-xs font-semibold text-muted-foreground">{t.counts.seats(seats.length)}</span>
               </div>
               <SidebarTrigger className="flex-none" />
             </div>
@@ -386,6 +388,7 @@ export function App() {
                     }
                     canRemove={state.tables.length > 1}
                     table={table}
+                    t={t}
                   />
                 ))}
                 <Button
@@ -395,36 +398,36 @@ export function App() {
                   onClick={addTable}
                 >
                   <Plus aria-hidden="true" />
-                  Add Table
+                  {t.actions.addTable}
                 </Button>
               </div>
             </SidebarGroup>
 
             <SidebarGroup className="border-b border-border p-4 sm:p-5">
               <div className="mb-3.5 flex items-baseline justify-between">
-                <h2 className="m-0 text-sm leading-tight font-semibold">Guests</h2>
+                <h2 className="m-0 text-sm leading-tight font-semibold">{t.sections.guests}</h2>
                 <span className="text-xs font-semibold text-muted-foreground">
-                  {state.guests.length - unseatedGuests.length}/{state.guests.length} seated
+                  {t.counts.seatedGuests(state.guests.length - unseatedGuests.length, state.guests.length)}
                 </span>
               </div>
               <form className="grid gap-2.5" onSubmit={addGuest}>
                 <Input
-                  placeholder="Name"
+                  placeholder={t.fields.name}
                   value={newGuest.name}
                   onChange={(event) => setNewGuest({ ...newGuest, name: event.target.value })}
                 />
                 <Input
-                  placeholder="Group"
+                  placeholder={t.fields.group}
                   list="guest-groups"
                   value={newGuest.group}
                   onChange={(event) => setNewGuest({ ...newGuest, group: event.target.value })}
                 />
                 <Input
-                  placeholder="Dietary"
+                  placeholder={t.fields.dietary}
                   value={newGuest.dietary}
                   onChange={(event) => setNewGuest({ ...newGuest, dietary: event.target.value })}
                 />
-                <Button type="submit">Add Guest</Button>
+                <Button type="submit">{t.actions.addGuest}</Button>
               </form>
               <datalist id="guest-groups">
                 {groups.map((group) => (
@@ -434,32 +437,32 @@ export function App() {
               <div className="mt-3 grid gap-2.5 border-t border-border pt-3">
                 <Label className="relative inline-flex min-h-9 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-border bg-background text-sm font-bold transition-colors hover:border-primary hover:text-primary">
                   <Input className="absolute inset-0 h-full opacity-0" accept=".csv,text/csv" type="file" onChange={handleCsvFile} />
-                  Choose CSV
+                  {t.actions.chooseCsv}
                 </Label>
                 <Textarea
                   className="min-h-24 resize-y"
                   rows={4}
-                  placeholder="name,group,dietary&#10;Alice Smith,Family,Vegetarian"
+                  placeholder={t.csvPlaceholder}
                   value={csvText}
                   onChange={(event) => setCsvText(event.target.value)}
                 />
                 <Button className="w-full" type="button" onClick={importGuestsFromCsv}>
-                  Import Guests
+                  {t.actions.importGuests}
                 </Button>
               </div>
             </SidebarGroup>
 
             <SidebarGroup className="min-h-56 p-4 sm:p-5">
               <div className="mb-3.5 flex items-baseline justify-between">
-                <h2 className="m-0 text-sm leading-tight font-semibold">Unseated</h2>
+                <h2 className="m-0 text-sm leading-tight font-semibold">{t.sections.unseated}</h2>
                 <span className="text-xs font-semibold text-muted-foreground">{unseatedGuests.length}</span>
               </div>
               <Button className="mb-3 w-full" type="button" onClick={autoSeatByGroup} disabled={unseatedGuests.length === 0}>
-                Seat by Group
+                {t.actions.seatByGroup}
               </Button>
               <div className="grid max-h-96 flex-auto gap-2.5 overflow-auto pr-1">
                 {unseatedGuests.length === 0 ? (
-                  <p className="m-0 text-sm text-muted-foreground">All guests have seats.</p>
+                  <p className="m-0 text-sm text-muted-foreground">{t.empty.allGuestsSeated}</p>
                 ) : (
                   unseatedGuests.map((guest) => (
                     <GuestChip key={guest.id} guest={guest} onEdit={openGuestEditor} onRemove={removeGuest} />
@@ -478,24 +481,33 @@ export function App() {
             </div>
             <div
               className="grid w-full max-w-3xl grid-cols-4 items-stretch overflow-hidden rounded-lg border border-border bg-background/80 max-md:max-w-none max-sm:grid-cols-2"
-              aria-label="Plan status"
+              aria-label={t.aria.planStatus}
             >
-              <Stat label="Tables" value={state.tables.length} />
-              <Stat label="Seats" value={seats.length} />
-              <Stat label="Guests" value={state.guests.length} />
-              <Stat label="Open" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
+              <Stat label={t.stats.tables} value={state.tables.length} />
+              <Stat label={t.stats.seats} value={seats.length} />
+              <Stat label={t.stats.guests} value={state.guests.length} />
+              <Stat label={t.stats.open} value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
             </div>
-            <ShareControl
-              copied={shareCopied}
-              isOpen={shareOpen}
-              onCopy={copyShareLink}
-              onToggle={() => {
-                setShareOpen((current) => !current);
-                setShareUrl(createShareUrl(state));
-                setShareCopied(false);
-              }}
-              url={shareUrl || createShareUrl(state)}
-            />
+            <div className="flex min-w-0 justify-end gap-2">
+              <LanguageControl
+                currentLabel={t.language.current}
+                label={t.aria.language}
+                nextLabel={t.language.next}
+                onToggle={() => setLocale(locale === "it" ? "en" : "it")}
+              />
+              <ShareControl
+                copied={shareCopied}
+                isOpen={shareOpen}
+                onCopy={copyShareLink}
+                onToggle={() => {
+                  setShareOpen((current) => !current);
+                  setShareUrl(createShareUrl(state));
+                  setShareCopied(false);
+                }}
+                t={t}
+                url={shareUrl || createShareUrl(state)}
+              />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-2 2xl:grid-cols-3">
@@ -510,6 +522,7 @@ export function App() {
                 onOpenSeat={(seatId) => setSeatModal({ seatId, query: "" })}
                 onSeatDrop={onSeatDrop}
                 table={table}
+                t={t}
               />
             ))}
           </div>
@@ -533,6 +546,7 @@ export function App() {
           seatModal={seatModal}
           table={modalTable}
           tables={state.tables}
+          t={t}
         />
       )}
 
@@ -542,6 +556,7 @@ export function App() {
           onChange={(nextGuestModal) => setGuestModal(nextGuestModal)}
           onClose={() => setGuestModal(null)}
           onSave={saveGuest}
+          t={t}
         />
       )}
     </div>
@@ -560,31 +575,55 @@ function ShareControl({
   isOpen,
   onCopy,
   onToggle,
+  t,
   url,
 }: {
   copied: boolean;
   isOpen: boolean;
   onCopy: (input: HTMLInputElement | null) => void;
   onToggle: () => void;
+  t: Messages;
   url: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="relative flex min-w-0 justify-end">
-      <Button aria-expanded={isOpen} aria-label="Share this plan" size="icon" type="button" variant="outline" onClick={onToggle}>
+      <Button aria-expanded={isOpen} aria-label={t.aria.sharePlan} size="icon" type="button" variant="outline" onClick={onToggle}>
         <Share2 aria-hidden="true" className="size-3.5" />
       </Button>
       {isOpen ? (
         <div className="absolute top-11 right-0 z-30 grid w-[min(22rem,calc(100vw-2rem))] gap-2 rounded-lg border border-border bg-background p-3 shadow-xl md:top-[4.5rem]">
-          <Input aria-label="Share link" readOnly ref={inputRef} value={url} onFocus={(event) => event.currentTarget.select()} />
+          <Input aria-label={t.aria.shareLink} readOnly ref={inputRef} value={url} onFocus={(event) => event.currentTarget.select()} />
           <Button className="w-full" type="button" onClick={() => onCopy(inputRef.current)}>
             {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
-            {copied ? "Copied" : "Copy link"}
+            {copied ? t.actions.copied : t.actions.copyLink}
           </Button>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function LanguageControl({
+  currentLabel,
+  label,
+  nextLabel,
+  onToggle,
+}: {
+  currentLabel: string;
+  label: string;
+  nextLabel: string;
+  onToggle: () => void;
+}) {
+  return (
+    <Button aria-label={label} className="relative" title={nextLabel} size="icon" type="button" variant="outline" onClick={onToggle}>
+      <Languages aria-hidden="true" className="size-3.5" />
+      <span className="sr-only">{label}</span>
+      <span aria-hidden="true" className="absolute -right-1 -bottom-1 rounded-sm border border-border bg-background px-1 text-[10px] font-black leading-4">
+        {currentLabel}
+      </span>
+    </Button>
   );
 }
 
@@ -594,8 +633,8 @@ function createShareUrl(state: PlannerState) {
   return url.href;
 }
 
-function createDuplicateTableName(name: string, tables: WeddingTable[]) {
-  const baseName = `${name} Copy`;
+function createDuplicateTableName(name: string, tables: WeddingTable[], copySuffix: string) {
+  const baseName = `${name} ${copySuffix}`;
   const existingNames = new Set(tables.map((table) => table.name.trim()));
   if (!existingNames.has(baseName)) return baseName;
 
