@@ -1,5 +1,5 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
-import { Download, Plus, RotateCcw } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import { GuestChip } from "@/components/guest-chip";
 import { GuestEditModal } from "@/components/guest-edit-modal";
@@ -18,7 +18,6 @@ import {
   createId,
   createSeatsForTable,
   encodeState,
-  escapeCsvCell,
   findSeatForGuest,
   groupGuests,
   loadStateFromUrl,
@@ -32,9 +31,7 @@ export function App() {
   const [guestModal, setGuestModal] = useState<GuestEditModalState>(null);
   const [csvText, setCsvText] = useState("");
   const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", dietary: "" });
-  const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() =>
-    new Set(state.tables[0] ? [state.tables[0].id] : []),
-  );
+  const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() => new Set());
 
   const seats = useMemo(() => state.tables.flatMap(createSeatsForTable), [state.tables]);
   const seatById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats]);
@@ -283,32 +280,6 @@ export function App() {
     });
   }
 
-  function resetPlanner() {
-    if (!window.confirm("Reset the planner and clear guests, tables, and assignments?")) return;
-    setState(starterState);
-    setSeatModal(null);
-    setGuestModal(null);
-    setOpenTableEditorIds(new Set(starterState.tables[0] ? [starterState.tables[0].id] : []));
-  }
-
-  function exportCsv() {
-    const rows = [["guest", "group", "dietary", "table", "seat"]];
-    for (const guest of state.guests) {
-      const seatId = findSeatForGuest(state.assignments, guest.id);
-      const seat = seatId ? seatById.get(seatId) : undefined;
-      const table = seat ? state.tables.find((item) => item.id === seat.tableId) : undefined;
-      rows.push([guest.name, guest.group, guest.dietary, table?.name ?? "", seat?.label ?? ""]);
-    }
-    const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "wedding-seating.csv";
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   function onSeatDrop(event: DragEvent<HTMLButtonElement>, seatId: string) {
     event.preventDefault();
     const guestId = event.dataTransfer.getData("application/x-guest-id");
@@ -433,25 +404,15 @@ export function App() {
         </aside>
 
         <section className="max-h-screen overflow-auto p-4 lg:col-span-8 lg:p-5 xl:col-span-9 max-lg:max-h-none">
-          <div className="mb-5 flex items-center justify-between gap-4 max-md:flex-col max-md:items-stretch">
+          <div className="mb-5">
             <div
-              className="grid max-w-3xl flex-auto grid-cols-4 items-stretch overflow-hidden rounded-lg border border-border bg-background/80 max-md:max-w-none max-sm:grid-cols-2"
+              className="grid max-w-3xl grid-cols-4 items-stretch overflow-hidden rounded-lg border border-border bg-background/80 max-md:max-w-none max-sm:grid-cols-2"
               aria-label="Plan status"
             >
               <Stat label="Tables" value={state.tables.length} />
               <Stat label="Seats" value={seats.length} />
               <Stat label="Guests" value={state.guests.length} />
               <Stat label="Open" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
-            </div>
-            <div className="flex flex-none justify-end gap-2.5 max-md:w-full">
-              <Button className="flex-1 sm:flex-none" type="button" variant="secondary" onClick={exportCsv}>
-                <Download aria-hidden="true" />
-                Export CSV
-              </Button>
-              <Button className="flex-1 sm:flex-none" type="button" variant="destructive" onClick={resetPlanner}>
-                <RotateCcw aria-hidden="true" />
-                Reset
-              </Button>
             </div>
           </div>
 
