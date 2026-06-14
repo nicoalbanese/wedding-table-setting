@@ -56,6 +56,13 @@ type SeatModalState = {
   query: string;
 } | null;
 
+type GuestEditModalState = {
+  guestId: string;
+  name: string;
+  group: string;
+  dietary: string;
+} | null;
+
 type NewGuestForm = {
   name: string;
   group: string;
@@ -145,6 +152,7 @@ const starterState: PlannerState = {
 export function App() {
   const [state, setState] = useState<PlannerState>(() => loadStateFromUrl() ?? starterState);
   const [seatModal, setSeatModal] = useState<SeatModalState>(null);
+  const [guestModal, setGuestModal] = useState<GuestEditModalState>(null);
   const [csvText, setCsvText] = useState("");
   const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", dietary: "" });
   const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() =>
@@ -309,6 +317,39 @@ export function App() {
         assignments,
       };
     });
+    setGuestModal((current) => (current?.guestId === guestId ? null : current));
+  }
+
+  function openGuestEditor(guest: Guest) {
+    setGuestModal({
+      guestId: guest.id,
+      name: guest.name,
+      group: guest.group,
+      dietary: guest.dietary,
+    });
+  }
+
+  function saveGuest(event: FormEvent) {
+    event.preventDefault();
+    if (!guestModal) return;
+
+    const name = guestModal.name.trim();
+    if (!name) return;
+
+    setState((current) => ({
+      ...current,
+      guests: current.guests.map((guest) =>
+        guest.id === guestModal.guestId
+          ? {
+              ...guest,
+              name,
+              group: guestModal.group.trim(),
+              dietary: guestModal.dietary.trim(),
+            }
+          : guest,
+      ),
+    }));
+    setGuestModal(null);
   }
 
   function autoSeatByGroup() {
@@ -350,6 +391,7 @@ export function App() {
     if (!window.confirm("Reset the planner and clear guests, tables, and assignments?")) return;
     setState(starterState);
     setSeatModal(null);
+    setGuestModal(null);
     setOpenTableEditorIds(new Set(starterState.tables[0] ? [starterState.tables[0].id] : []));
   }
 
@@ -487,7 +529,9 @@ export function App() {
               {unseatedGuests.length === 0 ? (
                 <p className="empty-copy">All guests have seats.</p>
               ) : (
-                unseatedGuests.map((guest) => <GuestChip key={guest.id} guest={guest} onRemove={removeGuest} />)
+                unseatedGuests.map((guest) => (
+                  <GuestChip key={guest.id} guest={guest} onEdit={openGuestEditor} onRemove={removeGuest} />
+                ))
               )}
             </div>
           </section>
@@ -548,9 +592,19 @@ export function App() {
                   {modalAssignedGuest.group ? <small>{modalAssignedGuest.group}</small> : null}
                 </span>
                 <DietaryBadges dietary={modalAssignedGuest.dietary} />
-                <button className="button secondary" type="button" onClick={() => clearSeat(modalSeat.id)}>
-                  Clear Seat
-                </button>
+                <div className="current-seat-actions">
+                  <button
+                    className="button secondary"
+                    type="button"
+                    aria-label={`Edit ${modalAssignedGuest.name}`}
+                    onClick={() => openGuestEditor(modalAssignedGuest)}
+                  >
+                    Edit
+                  </button>
+                  <button className="button secondary" type="button" onClick={() => clearSeat(modalSeat.id)}>
+                    Clear Seat
+                  </button>
+                </div>
               </div>
             )}
             <input
@@ -566,18 +620,83 @@ export function App() {
                 const seatedSeat = seatedAt ? seatById.get(seatedAt) : undefined;
                 const seatedTable = seatedSeat ? state.tables.find((table) => table.id === seatedSeat.tableId) : undefined;
                 return (
-                  <button className="guest-option" key={guest.id} type="button" onClick={() => assignGuestToSeat(guest.id, modalSeat.id)}>
-                    <span>
-                      {guest.name}
-                      {guest.group ? <small>{guest.group}</small> : null}
-                    </span>
-                    <DietaryBadges dietary={guest.dietary} />
-                    <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
-                  </button>
+                  <div className="guest-option" key={guest.id}>
+                    <button className="guest-option-main" type="button" onClick={() => assignGuestToSeat(guest.id, modalSeat.id)}>
+                      <span>
+                        {guest.name}
+                        {guest.group ? <small>{guest.group}</small> : null}
+                      </span>
+                      <DietaryBadges dietary={guest.dietary} />
+                      <em>{seatedSeat ? `${seatedTable?.name}, ${seatedSeat.label}` : "Unseated"}</em>
+                    </button>
+                    <button
+                      className="guest-option-edit"
+                      type="button"
+                      aria-label={`Edit ${guest.name}`}
+                      onClick={() => openGuestEditor(guest)}
+                    >
+                      Edit
+                    </button>
+                  </div>
                 );
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {guestModal && (
+        <div className="modal-backdrop guest-edit-backdrop" onMouseDown={() => setGuestModal(null)}>
+          <form
+            className="modal guest-edit-modal"
+            role="dialog"
+            aria-modal="true"
+            onSubmit={saveGuest}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Guest details</p>
+                <h2>Edit guest</h2>
+              </div>
+              <button className="icon-button" type="button" aria-label="Close" onClick={() => setGuestModal(null)}>
+                x
+              </button>
+            </div>
+            <div className="guest-edit-fields">
+              <label className="field">
+                <span>Name</span>
+                <input
+                  autoFocus
+                  value={guestModal.name}
+                  onChange={(event) => setGuestModal({ ...guestModal, name: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Group</span>
+                <input
+                  list="guest-groups"
+                  value={guestModal.group}
+                  onChange={(event) => setGuestModal({ ...guestModal, group: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                <span>Dietary restrictions</span>
+                <textarea
+                  value={guestModal.dietary}
+                  onChange={(event) => setGuestModal({ ...guestModal, dietary: event.target.value })}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button className="button secondary" type="button" onClick={() => setGuestModal(null)}>
+                Cancel
+              </button>
+              <button className="button primary" type="submit" disabled={!guestModal.name.trim()}>
+                Save Changes
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>
@@ -843,7 +962,15 @@ function SeatButton({
   );
 }
 
-function GuestChip({ guest, onRemove }: { guest: Guest; onRemove: (guestId: string) => void }) {
+function GuestChip({
+  guest,
+  onEdit,
+  onRemove,
+}: {
+  guest: Guest;
+  onEdit: (guest: Guest) => void;
+  onRemove: (guestId: string) => void;
+}) {
   return (
     <div
       className="guest-chip"
@@ -857,6 +984,9 @@ function GuestChip({ guest, onRemove }: { guest: Guest; onRemove: (guestId: stri
         {guest.group ? <small>{guest.group}</small> : null}
       </span>
       <DietaryBadges dietary={guest.dietary} />
+      <button className="guest-edit-button" type="button" aria-label={`Edit ${guest.name}`} onClick={() => onEdit(guest)}>
+        Edit
+      </button>
       <button type="button" aria-label={`Remove ${guest.name}`} onClick={() => onRemove(guest.id)}>
         x
       </button>
