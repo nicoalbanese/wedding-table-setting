@@ -427,19 +427,21 @@ export function App() {
         </aside>
 
         <section className="canvas">
-          <div className="canvas-actions">
-            <button className="button secondary" type="button" onClick={exportCsv}>
-              Export CSV
-            </button>
-            <button className="button danger" type="button" onClick={resetPlanner}>
-              Reset
-            </button>
-          </div>
-          <div className="stats-row">
-            <Stat label="Tables" value={state.tables.length} />
-            <Stat label="Seats" value={seats.length} />
-            <Stat label="Guests" value={state.guests.length} />
-            <Stat label="Open Seats" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
+          <div className="canvas-toolbar">
+            <div className="status-strip" aria-label="Plan status">
+              <Stat label="Tables" value={state.tables.length} />
+              <Stat label="Seats" value={seats.length} />
+              <Stat label="Guests" value={state.guests.length} />
+              <Stat label="Open" value={Math.max(0, seats.length - Object.keys(state.assignments).length)} />
+            </div>
+            <div className="canvas-actions">
+              <button className="button secondary" type="button" onClick={exportCsv}>
+                Export CSV
+              </button>
+              <button className="button danger" type="button" onClick={resetPlanner}>
+                Reset
+              </button>
+            </div>
           </div>
 
           <div className="tables-grid">
@@ -793,7 +795,7 @@ function GuestChip({ guest, onRemove }: { guest: Guest; onRemove: (guestId: stri
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="stat">
+    <div className="metric">
       <strong>{value}</strong>
       <span>{label}</span>
     </div>
