@@ -389,8 +389,23 @@ textarea:focus {
 .table-title {
   align-items: center;
   display: flex;
+  gap: 12px;
   justify-content: space-between;
   margin-bottom: 14px;
+}
+
+.table-name-input {
+  border-color: transparent;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 800;
+  min-height: 36px;
+  min-width: 0;
+  padding: 6px 8px;
+}
+
+.table-name-input:hover {
+  border-color: #d8d1c1;
 }
 
 .round-layout {

@@ -1,7 +1,7 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 type TableShape = "round" | "rectangular";
-type SeatSide = "top" | "right" | "bottom" | "left" | "head-start" | "head-end" | "ring";
+type SeatSide = "top" | "right" | "bottom" | "left" | "ring";
 
 type Guest = {
   id: string;
@@ -19,7 +19,6 @@ type WeddingTable = {
   rightSeats: number;
   bottomSeats: number;
   leftSeats: number;
-  hasHeads: boolean;
 };
 
 type Seat = {
@@ -56,22 +55,20 @@ const starterState: PlannerState = {
       name: "Top Table",
       shape: "rectangular",
       roundSeats: 8,
-      topSeats: 4,
-      rightSeats: 0,
-      bottomSeats: 4,
-      leftSeats: 0,
-      hasHeads: true,
+      topSeats: 0,
+      rightSeats: 6,
+      bottomSeats: 0,
+      leftSeats: 6,
     },
     {
       id: "table-2",
       name: "Table 2",
-      shape: "round",
+      shape: "rectangular",
       roundSeats: 8,
-      topSeats: 4,
-      rightSeats: 0,
-      bottomSeats: 4,
-      leftSeats: 0,
-      hasHeads: false,
+      topSeats: 0,
+      rightSeats: 6,
+      bottomSeats: 0,
+      leftSeats: 6,
     },
   ],
   guests: [],
@@ -421,6 +418,7 @@ export function App() {
                 assignments={state.assignments}
                 guestById={guestById}
                 onClearSeat={clearSeat}
+                onRename={(name) => updateTable(table.id, { name })}
                 onOpenSeat={(seatId) => setSeatModal({ seatId, query: "" })}
                 onSeatDrop={onSeatDrop}
                 table={table}
@@ -530,10 +528,6 @@ function TableEditor({
               <NumberField label="Bottom" value={table.bottomSeats} onChange={(bottomSeats) => onChange({ bottomSeats })} />
               <NumberField label="Left" value={table.leftSeats} onChange={(leftSeats) => onChange({ leftSeats })} />
             </div>
-            <label className="toggle-field">
-              <input type="checkbox" checked={table.hasHeads} onChange={(event) => onChange({ hasHeads: event.target.checked })} />
-              <span>Head seats</span>
-            </label>
           </>
         )}
       </div>
@@ -554,6 +548,7 @@ function TableView({
   assignments,
   guestById,
   onClearSeat,
+  onRename,
   onOpenSeat,
   onSeatDrop,
   table,
@@ -561,6 +556,7 @@ function TableView({
   assignments: Record<string, string>;
   guestById: Map<string, Guest>;
   onClearSeat: (seatId: string) => void;
+  onRename: (name: string) => void;
   onOpenSeat: (seatId: string) => void;
   onSeatDrop: (event: DragEvent<HTMLButtonElement>, seatId: string) => void;
   table: WeddingTable;
@@ -570,7 +566,12 @@ function TableView({
   return (
     <article className={`table-card ${table.shape}`}>
       <div className="table-title">
-        <h2>{table.name}</h2>
+        <input
+          aria-label={`Name for ${table.name}`}
+          className="table-name-input"
+          value={table.name}
+          onChange={(event) => onRename(event.target.value)}
+        />
         <span>
           {Object.keys(assignments).filter((seatId) => seatId.startsWith(`${table.id}:`)).length}/{seats.length}
         </span>
@@ -611,7 +612,7 @@ function TableView({
           <div className="middle-row">
             <div className="seat-column">
               {seats
-                .filter((seat) => seat.side === "left" || seat.side === "head-start")
+                .filter((seat) => seat.side === "left")
                 .map((seat) => (
                   <SeatButton
                     assignment={assignments[seat.id]}
@@ -627,7 +628,7 @@ function TableView({
             <div className="rect-table-label">Table</div>
             <div className="seat-column">
               {seats
-                .filter((seat) => seat.side === "right" || seat.side === "head-end")
+                .filter((seat) => seat.side === "right")
                 .map((seat) => (
                   <SeatButton
                     assignment={assignments[seat.id]}
@@ -742,13 +743,12 @@ function createDefaultTable(number: number): WeddingTable {
   return {
     id: createId("table"),
     name: `Table ${number}`,
-    shape: "round",
+    shape: "rectangular",
     roundSeats: 8,
-    topSeats: 4,
-    rightSeats: 0,
-    bottomSeats: 4,
-    leftSeats: 0,
-    hasHeads: false,
+    topSeats: 0,
+    rightSeats: 6,
+    bottomSeats: 0,
+    leftSeats: 6,
   };
 }
 
@@ -765,10 +765,8 @@ function createSeatsForTable(table: WeddingTable): Seat[] {
 
   const seats: Seat[] = [];
   addSideSeats(seats, table, "top", table.topSeats, "Top");
-  if (table.hasHeads) addSideSeats(seats, table, "head-start", 1, "Head");
   addSideSeats(seats, table, "left", table.leftSeats, "Left");
   addSideSeats(seats, table, "right", table.rightSeats, "Right");
-  if (table.hasHeads) addSideSeats(seats, table, "head-end", 1, "Head");
   addSideSeats(seats, table, "bottom", table.bottomSeats, "Bottom");
   return seats;
 }
