@@ -382,7 +382,7 @@ textarea:focus {
   background: #ffffff;
   border: 1px solid #ded9cc;
   border-radius: 8px;
-  min-height: 360px;
+  min-height: 0;
   padding: 14px;
 }
 
@@ -397,15 +397,43 @@ textarea:focus {
 .table-name-input {
   border-color: transparent;
   border-radius: 6px;
+  flex: 1 1 auto;
   font-size: 16px;
   font-weight: 800;
   min-height: 36px;
   min-width: 0;
   padding: 6px 8px;
+  width: auto;
 }
 
 .table-name-input:hover {
   border-color: #d8d1c1;
+}
+
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.table-reset-button {
+  background: #fff5f2;
+  border: 1px solid #e4b5aa;
+  border-radius: 6px;
+  color: #8b2f20;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 30px;
+  padding: 5px 8px;
+  white-space: nowrap;
+}
+
+.table-reset-button:disabled {
+  background: #f8f6f1;
+  border-color: #ded9cc;
+  color: #9b968c;
+  cursor: default;
 }
 
 .round-layout {
@@ -436,22 +464,23 @@ textarea:focus {
 .rectangle-layout {
   display: grid;
   gap: 10px;
-  grid-template-rows: auto 1fr auto;
-  min-height: 286px;
+  grid-template-rows: auto;
+  min-height: 0;
 }
 
 .seat-row {
   display: flex;
   gap: 8px;
   justify-content: center;
-  min-height: 54px;
+  min-height: 48px;
 }
 
 .middle-row {
+  align-items: stretch;
   display: grid;
   gap: 12px;
-  grid-template-columns: 80px 1fr 80px;
-  min-height: 176px;
+  grid-template-columns: minmax(70px, 78px) minmax(120px, 1fr) minmax(70px, 78px);
+  min-height: 0;
 }
 
 .seat-column {
@@ -469,7 +498,7 @@ textarea:focus {
   display: flex;
   font-weight: 850;
   justify-content: center;
-  min-height: 154px;
+  min-height: 170px;
 }
 
 .seat {
@@ -651,7 +680,7 @@ textarea:focus {
   }
 
   .table-card {
-    min-height: 320px;
+    min-height: 0;
   }
 
   .round-layout {
@@ -659,7 +688,8 @@ textarea:focus {
   }
 
   .middle-row {
-    grid-template-columns: 72px 1fr 72px;
+    gap: 8px;
+    grid-template-columns: minmax(66px, 70px) minmax(96px, 1fr) minmax(66px, 70px);
   }
 
   .seat {

@@ -81,6 +81,9 @@ export function App() {
   const [csvText, setCsvText] = useState("");
   const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", notes: "" });
   const [tableCountInput, setTableCountInput] = useState(String(state.tables.length));
+  const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() =>
+    new Set(state.tables[0] ? [state.tables[0].id] : []),
+  );
 
   const seats = useMemo(() => state.tables.flatMap(createSeatsForTable), [state.tables]);
   const seatById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats]);
@@ -193,6 +196,20 @@ export function App() {
     setState((current) => {
       const nextAssignments = { ...current.assignments };
       delete nextAssignments[seatId];
+      return { ...current, assignments: nextAssignments };
+    });
+  }
+
+  function clearTable(tableId: string) {
+    setState((current) => {
+      const table = current.tables.find((item) => item.id === tableId);
+      const tableSeatIds = new Set(table ? createSeatsForTable(table).map((seat) => seat.id) : []);
+      if (tableSeatIds.size === 0) return current;
+
+      const nextAssignments = { ...current.assignments };
+      for (const seatId of tableSeatIds) {
+        delete nextAssignments[seatId];
+      }
       return { ...current, assignments: nextAssignments };
     });
   }
@@ -329,8 +346,24 @@ export function App() {
               </div>
             </label>
             <div className="table-editor-list">
-              {state.tables.map((table, index) => (
-                <TableEditor key={table.id} index={index} table={table} onChange={(patch) => updateTable(table.id, patch)} />
+              {state.tables.map((table) => (
+                <TableEditor
+                  key={table.id}
+                  isOpen={openTableEditorIds.has(table.id)}
+                  onChange={(patch) => updateTable(table.id, patch)}
+                  onToggle={(isOpen) =>
+                    setOpenTableEditorIds((current) => {
+                      const next = new Set(current);
+                      if (isOpen) {
+                        next.add(table.id);
+                      } else {
+                        next.delete(table.id);
+                      }
+                      return next;
+                    })
+                  }
+                  table={table}
+                />
               ))}
             </div>
           </section>
@@ -418,6 +451,7 @@ export function App() {
                 assignments={state.assignments}
                 guestById={guestById}
                 onClearSeat={clearSeat}
+                onClearTable={() => clearTable(table.id)}
                 onRename={(name) => updateTable(table.id, { name })}
                 onOpenSeat={(seatId) => setSeatModal({ seatId, query: "" })}
                 onSeatDrop={onSeatDrop}
@@ -482,16 +516,18 @@ export function App() {
 }
 
 function TableEditor({
-  index,
+  isOpen,
   onChange,
+  onToggle,
   table,
 }: {
-  index: number;
+  isOpen: boolean;
   onChange: (patch: Partial<WeddingTable>) => void;
+  onToggle: (isOpen: boolean) => void;
   table: WeddingTable;
 }) {
   return (
-    <details className="table-editor" open={index < 2}>
+    <details className="table-editor" open={isOpen} onToggle={(event) => onToggle(event.currentTarget.open)}>
       <summary>
         <span>{table.name}</span>
         <em>{createSeatsForTable(table).length} seats</em>
@@ -548,6 +584,7 @@ function TableView({
   assignments,
   guestById,
   onClearSeat,
+  onClearTable,
   onRename,
   onOpenSeat,
   onSeatDrop,
@@ -556,12 +593,18 @@ function TableView({
   assignments: Record<string, string>;
   guestById: Map<string, Guest>;
   onClearSeat: (seatId: string) => void;
+  onClearTable: () => void;
   onRename: (name: string) => void;
   onOpenSeat: (seatId: string) => void;
   onSeatDrop: (event: DragEvent<HTMLButtonElement>, seatId: string) => void;
   table: WeddingTable;
 }) {
   const seats = createSeatsForTable(table);
+  const assignedCount = seats.filter((seat) => assignments[seat.id]).length;
+  const topSeats = seats.filter((seat) => seat.side === "top");
+  const leftSeats = seats.filter((seat) => seat.side === "left");
+  const rightSeats = seats.filter((seat) => seat.side === "right");
+  const bottomSeats = seats.filter((seat) => seat.side === "bottom");
 
   return (
     <article className={`table-card ${table.shape}`}>
@@ -572,9 +615,14 @@ function TableView({
           value={table.name}
           onChange={(event) => onRename(event.target.value)}
         />
-        <span>
-          {Object.keys(assignments).filter((seatId) => seatId.startsWith(`${table.id}:`)).length}/{seats.length}
-        </span>
+        <div className="table-actions">
+          <span>
+            {assignedCount}/{seats.length}
+          </span>
+          <button className="table-reset-button" type="button" onClick={onClearTable} disabled={assignedCount === 0}>
+            Unseat Table
+          </button>
+        </div>
       </div>
       {table.shape === "round" ? (
         <div className="round-layout">
@@ -594,10 +642,9 @@ function TableView({
         </div>
       ) : (
         <div className="rectangle-layout">
-          <div className="seat-row top">
-            {seats
-              .filter((seat) => seat.side === "top")
-              .map((seat) => (
+          {topSeats.length > 0 && (
+            <div className="seat-row top">
+              {topSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}
                   guest={guestById.get(assignments[seat.id])}
@@ -608,12 +655,11 @@ function TableView({
                   seat={seat}
                 />
               ))}
-          </div>
+            </div>
+          )}
           <div className="middle-row">
             <div className="seat-column">
-              {seats
-                .filter((seat) => seat.side === "left")
-                .map((seat) => (
+              {leftSeats.map((seat) => (
                   <SeatButton
                     assignment={assignments[seat.id]}
                     guest={guestById.get(assignments[seat.id])}
@@ -627,9 +673,7 @@ function TableView({
             </div>
             <div className="rect-table-label">Table</div>
             <div className="seat-column">
-              {seats
-                .filter((seat) => seat.side === "right")
-                .map((seat) => (
+              {rightSeats.map((seat) => (
                   <SeatButton
                     assignment={assignments[seat.id]}
                     guest={guestById.get(assignments[seat.id])}
@@ -642,10 +686,9 @@ function TableView({
                 ))}
             </div>
           </div>
-          <div className="seat-row bottom">
-            {seats
-              .filter((seat) => seat.side === "bottom")
-              .map((seat) => (
+          {bottomSeats.length > 0 && (
+            <div className="seat-row bottom">
+              {bottomSeats.map((seat) => (
                 <SeatButton
                   assignment={assignments[seat.id]}
                   guest={guestById.get(assignments[seat.id])}
@@ -656,7 +699,8 @@ function TableView({
                   seat={seat}
                 />
               ))}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </article>
