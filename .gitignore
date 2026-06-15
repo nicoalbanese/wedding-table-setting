@@ -1,2 +1,8 @@
 node_modules
 dist
+.next
+*.tsbuildinfo
+
+.env*
+.pnpm-store
+.vercel

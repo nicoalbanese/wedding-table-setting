@@ -230,6 +230,8 @@ export function normalizePlannerState(state: LegacyPlannerState): PlannerState {
 }
 
 export function loadStateFromUrl() {
+  if (typeof window === "undefined") return null;
+
   const params = new URLSearchParams(window.location.search);
   const encoded = params.get(STATE_QUERY_KEY) ?? params.get(LEGACY_STATE_QUERY_KEY);
   return encoded ? decodeState(encoded) : null;

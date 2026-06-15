@@ -1,5 +1,7 @@
+"use client";
+
 import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Languages, Plus, Share2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, Languages, Lock, Plus, Save, Share2 } from "lucide-react";
 
 import { GuestChip } from "@/components/guest-chip";
 import { GuestEditModal } from "@/components/guest-edit-modal";
@@ -37,9 +39,33 @@ import {
   sanitizeAssignments,
 } from "@/planner/utils";
 
-export function App() {
+type PersistedPlan = {
+  createdAt: string;
+  id: string;
+  name: string;
+  protected: boolean;
+  rev: number;
+  state: PlannerState;
+  updatedAt: string;
+};
+
+type PersistenceStatus = "idle" | "loading" | "saving" | "saved" | "conflict" | "error" | "password-required";
+
+export type InitialPlanLoad =
+  | { status: "available"; plan: PersistedPlan }
+  | { status: "password-required" }
+  | { status: "not-found" }
+  | { status: "store-not-configured" };
+
+export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlanLoad; planId?: string }) {
   const { locale, setLocale, t } = useI18n();
-  const [state, setState] = useState<PlannerState>(() => loadStateFromUrl() ?? createStarterState(t.defaults));
+  const [state, setState] = useState<PlannerState>(() =>
+    initialPlanLoad?.status === "available"
+      ? initialPlanLoad.plan.state
+      : planId
+        ? createStarterState(t.defaults)
+        : loadStateFromUrl() ?? createStarterState(t.defaults),
+  );
   const [seatModal, setSeatModal] = useState<SeatModalState>(null);
   const [guestModal, setGuestModal] = useState<GuestEditModalState>(null);
   const [csvText, setCsvText] = useState("");
@@ -48,6 +74,26 @@ export function App() {
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
+  const [remotePlan, setRemotePlan] = useState<PersistedPlan | null>(() =>
+    initialPlanLoad?.status === "available" ? initialPlanLoad.plan : null,
+  );
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(() =>
+    initialPlanLoad?.status === "available" ? createSavedSnapshot(initialPlanLoad.plan.state, initialPlanLoad.plan.name) : null,
+  );
+  const [createPassword, setCreatePassword] = useState("");
+  const [planName, setPlanName] = useState(() =>
+    initialPlanLoad?.status === "available" ? initialPlanLoad.plan.name : getDefaultPlanName(),
+  );
+  const [linkSlug, setLinkSlug] = useState(() =>
+    initialPlanLoad?.status === "available" ? initialPlanLoad.plan.id : createPlanSlug(getDefaultPlanName()),
+  );
+  const [linkSlugEdited, setLinkSlugEdited] = useState(false);
+  const [planPassword, setPlanPassword] = useState("");
+  const [nextPlanPassword, setNextPlanPassword] = useState("");
+  const [clearPlanPassword, setClearPlanPassword] = useState(false);
+  const [persistenceStatus, setPersistenceStatus] = useState<PersistenceStatus>(() => resolveInitialPersistenceStatus(planId, initialPlanLoad));
+  const [persistenceError, setPersistenceError] = useState(() => resolveInitialPersistenceError(initialPlanLoad));
+  const [conflictPlan, setConflictPlan] = useState<PersistedPlan | null>(null);
 
   const seats = useMemo(() => state.tables.flatMap((table) => createSeatsForTable(table, t.seats)), [state.tables, t.seats]);
   const seatById = useMemo(() => new Map(seats.map((seat) => [seat.id, seat])), [seats]);
@@ -61,8 +107,17 @@ export function App() {
     const uniqueGroups = new Set(state.guests.map((guest) => guest.group).filter(Boolean));
     return [...uniqueGroups].sort((a, b) => a.localeCompare(b));
   }, [state.guests]);
+  const currentPlanId = remotePlan?.id ?? planId;
+  const currentSnapshot = useMemo(() => createSavedSnapshot(state, planName), [planName, state]);
+  const hasRemotePlan = Boolean(remotePlan);
+  const hasContentChanges = hasRemotePlan && savedSnapshot !== null && currentSnapshot !== savedSnapshot;
+  const hasPasswordChange = Boolean(remotePlan && (nextPlanPassword.trim() || (remotePlan.protected && clearPlanPassword)));
+  const isDirty = hasContentChanges || hasPasswordChange;
+  const isBusy = persistenceStatus === "loading" || persistenceStatus === "saving";
 
   useEffect(() => {
+    if (currentPlanId) return;
+
     const url = new URL(window.location.href);
     const encoded = encodeState(state);
     if (url.searchParams.get(STATE_QUERY_KEY) !== encoded) {
@@ -70,18 +125,176 @@ export function App() {
       url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
       window.history.replaceState(null, "", url);
     }
-  }, [state]);
+  }, [currentPlanId, state]);
 
   useEffect(() => {
     setState((current) => sanitizeAssignments(current));
   }, [seats]);
 
   useEffect(() => {
+    if (!planId || initialPlanLoad) return;
+
+    loadPersistedPlan();
+    // We only want the route id to trigger initial remote loading. Password retries call loadPersistedPlan directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPlanLoad, planId]);
+
+  useEffect(() => {
     if (!shareOpen) return;
 
-    setShareUrl(createShareUrl(state));
+    setShareUrl(createShareUrl(state, currentPlanId));
     setShareCopied(false);
-  }, [shareOpen, state]);
+  }, [currentPlanId, shareOpen, state]);
+
+  useEffect(() => {
+    if (currentPlanId || linkSlugEdited) return;
+    setLinkSlug(createPlanSlug(planName));
+  }, [currentPlanId, linkSlugEdited, planName]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty]);
+
+  async function loadPersistedPlan(password = planPassword) {
+    if (!planId) return;
+
+    setPersistenceStatus("loading");
+    setPersistenceError("");
+    setConflictPlan(null);
+
+    const response = await fetch(`/api/plans/${encodeURIComponent(planId)}`, {
+      cache: "no-store",
+      headers: password ? { "x-plan-password": password } : undefined,
+    });
+    const payload = (await response.json().catch(() => null)) as PersistedPlan | { error?: string } | null;
+
+    if (response.status === 401) {
+      setPersistenceStatus("password-required");
+      setPersistenceError("");
+      return;
+    }
+
+    if (!response.ok || !isPersistedPlan(payload)) {
+      setPersistenceStatus("error");
+      setPersistenceError(resolvePersistenceError(getApiError(payload), "Could not load this saved plan."));
+      return;
+    }
+
+    setRemotePlan(payload);
+    setPlanName(payload.name);
+    setLinkSlug(payload.id);
+    setState(payload.state);
+    setSavedSnapshot(createSavedSnapshot(payload.state, payload.name));
+    setNextPlanPassword("");
+    setClearPlanPassword(false);
+    setPersistenceStatus("saved");
+    setPersistenceError("");
+  }
+
+  async function createPersistedPlan() {
+    const id = createPlanSlug(linkSlug || planName);
+    if (!id) {
+      setPersistenceStatus("error");
+      setPersistenceError("Choose a valid link name before saving.");
+      setShareOpen(true);
+      return;
+    }
+
+    setPersistenceStatus("saving");
+    setPersistenceError("");
+    setConflictPlan(null);
+
+    const response = await fetch("/api/plans", {
+      body: JSON.stringify({ id, name: planName, password: createPassword, state }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+    const payload = (await response.json().catch(() => null)) as PersistedPlan | { error?: string } | null;
+
+    if (!response.ok || !isPersistedPlan(payload)) {
+      setPersistenceStatus("error");
+      setPersistenceError(resolvePersistenceError(getApiError(payload), "Could not create a saved plan."));
+      return;
+    }
+
+    setRemotePlan(payload);
+    setPlanName(payload.name);
+    setLinkSlug(payload.id);
+    setLinkSlugEdited(false);
+    setPlanPassword(createPassword);
+    setCreatePassword("");
+    setSavedSnapshot(createSavedSnapshot(payload.state, payload.name));
+    setPersistenceStatus("saved");
+    setShareUrl(createShareUrl(payload.state, payload.id));
+    replaceUrlWithPlanId(payload.id);
+  }
+
+  async function savePersistedPlan() {
+    if (!remotePlan) return;
+
+    setPersistenceStatus("saving");
+    setPersistenceError("");
+    setConflictPlan(null);
+
+    const response = await fetch(`/api/plans/${encodeURIComponent(remotePlan.id)}`, {
+      body: JSON.stringify({
+        baseRev: remotePlan.rev,
+        clearPassword: clearPlanPassword,
+        name: planName,
+        nextPassword: nextPlanPassword,
+        password: planPassword,
+        state,
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+    const payload = (await response.json().catch(() => null)) as PersistedPlan | { latest?: PersistedPlan; error?: string } | null;
+
+    if (response.status === 409 && payload && "latest" in payload && payload.latest) {
+      setConflictPlan(payload.latest);
+      setPersistenceStatus("conflict");
+      setPersistenceError("The stored plan changed since you loaded it.");
+      return;
+    }
+
+    if (!response.ok || !isPersistedPlan(payload)) {
+      setPersistenceStatus("error");
+      setPersistenceError(resolvePersistenceError(getApiError(payload), "Could not save this plan."));
+      return;
+    }
+
+    setRemotePlan(payload);
+    setPlanName(payload.name);
+    setLinkSlug(payload.id);
+    setPlanPassword(payload.protected ? nextPlanPassword.trim() || planPassword : "");
+    setNextPlanPassword("");
+    setClearPlanPassword(false);
+    setSavedSnapshot(createSavedSnapshot(payload.state, payload.name));
+    setPersistenceStatus("saved");
+    setShareUrl(createShareUrl(payload.state, payload.id));
+  }
+
+  function loadConflictPlan() {
+    if (!conflictPlan) return;
+    setRemotePlan(conflictPlan);
+    setPlanName(conflictPlan.name);
+    setLinkSlug(conflictPlan.id);
+    setState(conflictPlan.state);
+    setSavedSnapshot(createSavedSnapshot(conflictPlan.state, conflictPlan.name));
+    setNextPlanPassword("");
+    setClearPlanPassword(false);
+    setConflictPlan(null);
+    setPersistenceStatus("saved");
+    setPersistenceError("");
+  }
 
   function updateTable(tableId: string, patch: Partial<WeddingTable>) {
     setState((current) =>
@@ -333,7 +546,7 @@ export function App() {
   }
 
   async function copyShareLink(input: HTMLInputElement | null) {
-    const url = createShareUrl(state);
+    const url = createShareUrl(state, currentPlanId);
     setShareUrl(url);
     let didCopy = false;
 
@@ -349,9 +562,74 @@ export function App() {
     setShareCopied(didCopy);
   }
 
+  function openSharePanel() {
+    setShareOpen(true);
+    setShareUrl(createShareUrl(state, currentPlanId));
+    setShareCopied(false);
+  }
+
+  function toggleSharePanel() {
+    setShareOpen((current) => !current);
+    setShareUrl(createShareUrl(state, currentPlanId));
+    setShareCopied(false);
+  }
+
+  function handleSaveButtonClick() {
+    if (remotePlan && isDirty && (!remotePlan.protected || planPassword.trim())) {
+      void savePersistedPlan();
+      return;
+    }
+
+    openSharePanel();
+  }
+
   const modalSeat = seatModal ? seatById.get(seatModal.seatId) : undefined;
   const modalTable = modalSeat ? state.tables.find((table) => table.id === modalSeat.tableId) : undefined;
   const modalAssignedGuest = modalSeat ? guestById.get(state.assignments[modalSeat.id]) : undefined;
+
+  if (planId && !remotePlan && persistenceStatus === "error") {
+    return (
+      <div className="grid min-h-screen min-w-80 place-items-center bg-canvas p-4 font-sans text-foreground antialiased">
+        <div className="grid w-full max-w-sm gap-3 rounded-lg border border-border bg-background p-5 shadow-xl">
+          <div className="grid gap-1">
+            <h1 className="m-0 text-lg font-extrabold">Plan unavailable</h1>
+            <p className="m-0 text-sm text-muted-foreground">{persistenceError || "This saved plan could not be opened."}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (planId && !remotePlan && (persistenceStatus === "loading" || persistenceStatus === "password-required")) {
+    return (
+      <div className="grid min-h-screen min-w-80 place-items-center bg-canvas p-4 font-sans text-foreground antialiased">
+        <form
+          className="grid w-full max-w-sm gap-3 rounded-lg border border-border bg-background p-5 shadow-xl"
+          onSubmit={(event) => {
+            event.preventDefault();
+            loadPersistedPlan(planPassword);
+          }}
+        >
+          <div className="grid gap-1">
+            <h1 className="m-0 text-lg font-extrabold">Protected plan</h1>
+            <p className="m-0 text-sm text-muted-foreground">Enter the password to open this seating plan.</p>
+          </div>
+          <Input
+            autoFocus
+            placeholder="Password"
+            type="password"
+            value={planPassword}
+            onChange={(event) => setPlanPassword(event.target.value)}
+          />
+          {persistenceError ? <p className="m-0 text-sm font-bold text-destructive">{persistenceError}</p> : null}
+          <Button type="submit" disabled={!planPassword.trim() || persistenceStatus === "loading"}>
+            <Lock aria-hidden="true" className="size-4" />
+            {persistenceStatus === "loading" ? "Loading" : "Unlock"}
+          </Button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen min-w-80 bg-canvas font-sans text-foreground antialiased">
@@ -496,17 +774,56 @@ export function App() {
                 nextLabel={t.language.next}
                 onToggle={() => setLocale(locale === "it" ? "en" : "it")}
               />
+              <Button
+                className="relative"
+                disabled={isBusy || (remotePlan ? !isDirty && persistenceStatus === "saved" : false)}
+                type="button"
+                variant={isDirty ? "default" : "outline"}
+                onClick={handleSaveButtonClick}
+              >
+                <Save aria-hidden="true" className="size-4" />
+                <span className="max-sm:sr-only">
+                  {remotePlan ? (isDirty ? "Save changes" : "Saved") : "Save online"}
+                </span>
+                {isDirty ? <span aria-label="Unsaved changes" className="absolute -top-1 -right-1 text-base leading-none font-black text-destructive">*</span> : null}
+              </Button>
               <ShareControl
                 copied={shareCopied}
+                createPassword={createPassword}
+                conflictPlan={conflictPlan}
+                currentPlanId={currentPlanId}
+                error={persistenceError}
+                isDirty={isDirty}
                 isOpen={shareOpen}
+                linkSlug={linkSlug}
+                clearPassword={clearPlanPassword}
+                onCreatePlan={createPersistedPlan}
                 onCopy={copyShareLink}
-                onToggle={() => {
-                  setShareOpen((current) => !current);
-                  setShareUrl(createShareUrl(state));
-                  setShareCopied(false);
+                onClearPasswordChange={(checked) => {
+                  setClearPlanPassword(checked);
+                  if (checked) setNextPlanPassword("");
                 }}
+                onLinkSlugChange={(value) => {
+                  setLinkSlugEdited(true);
+                  setLinkSlug(createPlanSlug(value));
+                }}
+                onLoadConflictPlan={loadConflictPlan}
+                onNextPasswordChange={(password) => {
+                  setNextPlanPassword(password);
+                  if (password.trim()) setClearPlanPassword(false);
+                }}
+                onPasswordChange={setPlanPassword}
+                onCreatePasswordChange={setCreatePassword}
+                onPlanNameChange={setPlanName}
+                onSavePlan={savePersistedPlan}
+                onToggle={toggleSharePanel}
+                nextPassword={nextPlanPassword}
+                password={planPassword}
+                planName={planName}
+                protectedPlan={remotePlan?.protected ?? false}
+                status={persistenceStatus}
                 t={t}
-                url={shareUrl || createShareUrl(state)}
+                url={shareUrl || createShareUrl(state, currentPlanId)}
               />
             </div>
           </div>
@@ -572,34 +889,168 @@ function FloatingSidebarTrigger() {
 }
 
 function ShareControl({
+  clearPassword,
   copied,
+  createPassword,
+  conflictPlan,
+  currentPlanId,
+  error,
+  isDirty,
   isOpen,
+  linkSlug,
+  nextPassword,
+  onClearPasswordChange,
+  onCreatePasswordChange,
+  onCreatePlan,
   onCopy,
+  onLinkSlugChange,
+  onLoadConflictPlan,
+  onNextPasswordChange,
+  onPasswordChange,
+  onPlanNameChange,
+  onSavePlan,
   onToggle,
+  password,
+  planName,
+  protectedPlan,
+  status,
   t,
   url,
 }: {
+  clearPassword: boolean;
   copied: boolean;
+  createPassword: string;
+  conflictPlan: PersistedPlan | null;
+  currentPlanId: string | undefined;
+  error: string;
+  isDirty: boolean;
   isOpen: boolean;
+  linkSlug: string;
+  nextPassword: string;
+  onClearPasswordChange: (checked: boolean) => void;
+  onCreatePasswordChange: (password: string) => void;
+  onCreatePlan: () => void;
   onCopy: (input: HTMLInputElement | null) => void;
+  onLinkSlugChange: (slug: string) => void;
+  onLoadConflictPlan: () => void;
+  onNextPasswordChange: (password: string) => void;
+  onPasswordChange: (password: string) => void;
+  onPlanNameChange: (name: string) => void;
+  onSavePlan: () => void;
   onToggle: () => void;
+  password: string;
+  planName: string;
+  protectedPlan: boolean;
+  status: PersistenceStatus;
   t: Messages;
   url: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const isBusy = status === "loading" || status === "saving";
+  const statusLabel = getPersistenceStatusLabel(status, Boolean(currentPlanId), isDirty);
 
   return (
     <div className="relative flex min-w-0 justify-end">
-      <Button aria-expanded={isOpen} aria-label={t.aria.sharePlan} size="icon" type="button" variant="outline" onClick={onToggle}>
+      <Button aria-expanded={isOpen} aria-label={t.aria.sharePlan} className="relative" size="icon" type="button" variant="outline" onClick={onToggle}>
         <Share2 aria-hidden="true" className="size-3.5" />
+        {isDirty ? <span aria-label="Unsaved changes" className="absolute -top-1 -right-1 text-base leading-none font-black text-destructive">*</span> : null}
       </Button>
       {isOpen ? (
-        <div className="absolute top-11 right-0 z-30 grid w-[min(22rem,calc(100vw-2rem))] gap-2 rounded-lg border border-border bg-background p-3 shadow-xl md:top-[4.5rem]">
-          <Input aria-label={t.aria.shareLink} readOnly ref={inputRef} value={url} onFocus={(event) => event.currentTarget.select()} />
-          <Button className="w-full" type="button" onClick={() => onCopy(inputRef.current)}>
-            {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
-            {copied ? t.actions.copied : t.actions.copyLink}
-          </Button>
+        <div className="absolute top-11 right-0 z-30 grid w-[min(24rem,calc(100vw-2rem))] gap-3 rounded-lg border border-border bg-background p-3 shadow-xl md:top-[4.5rem]">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-black text-muted-foreground">{statusLabel}</span>
+            {currentPlanId ? <span className="rounded-sm bg-accent px-2 py-1 text-xs font-black">/{currentPlanId}</span> : null}
+          </div>
+          {currentPlanId ? (
+            <div className="grid gap-2">
+              <Label className="grid gap-1.5">
+                <span className="text-xs font-bold text-foreground/80">Plan name</span>
+                <Input value={planName} onChange={(event) => onPlanNameChange(event.target.value)} />
+              </Label>
+              <Input aria-label={t.aria.shareLink} readOnly ref={inputRef} value={url} onFocus={(event) => event.currentTarget.select()} />
+              {protectedPlan ? (
+                <Label className="grid gap-1.5">
+                  <span className="text-xs font-bold text-foreground/80">Current password</span>
+                  <Input type="password" value={password} onChange={(event) => onPasswordChange(event.target.value)} />
+                </Label>
+              ) : null}
+              <Label className="grid gap-1.5">
+                <span className="text-xs font-bold text-foreground/80">
+                  {protectedPlan ? "New password" : "Add password"}
+                </span>
+                <Input
+                  disabled={clearPassword}
+                  placeholder={protectedPlan ? "Leave blank to keep current password" : "Optional password"}
+                  type="password"
+                  value={nextPassword}
+                  onChange={(event) => onNextPasswordChange(event.target.value)}
+                />
+              </Label>
+              {protectedPlan ? (
+                <label className="flex items-center gap-2 rounded-md border border-border bg-accent px-2.5 py-2 text-sm font-semibold">
+                  <input
+                    checked={clearPassword}
+                    className="size-4 accent-primary"
+                    type="checkbox"
+                    onChange={(event) => onClearPasswordChange(event.target.checked)}
+                  />
+                  Remove password protection
+                </label>
+              ) : null}
+              <div className="grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" onClick={() => onCopy(inputRef.current)}>
+                  {copied ? <Check aria-hidden="true" className="size-4" /> : <Copy aria-hidden="true" className="size-4" />}
+                  {copied ? t.actions.copied : t.actions.copyLink}
+                </Button>
+                <Button type="button" onClick={onSavePlan} disabled={!isDirty || isBusy || (protectedPlan && !password.trim())}>
+                  <Save aria-hidden="true" className="size-4" />
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <Label className="grid gap-1.5">
+                <span className="text-xs font-bold text-foreground/80">Plan name</span>
+                <Input value={planName} onChange={(event) => onPlanNameChange(event.target.value)} />
+              </Label>
+              <Label className="grid gap-1.5">
+                <span className="text-xs font-bold text-foreground/80">Link name</span>
+                <div className="flex overflow-hidden rounded-md border border-input bg-background">
+                  <span className="flex min-w-8 items-center justify-center border-r border-input bg-accent px-2 text-sm font-bold text-muted-foreground">/</span>
+                  <Input
+                    aria-label="Link name"
+                    className="border-0 shadow-none focus-visible:ring-0"
+                    placeholder="nicos-wedding"
+                    value={linkSlug}
+                    onChange={(event) => onLinkSlugChange(event.target.value)}
+                  />
+                </div>
+              </Label>
+              <Input
+                placeholder="Optional password"
+                type="password"
+                value={createPassword}
+                onChange={(event) => onCreatePasswordChange(event.target.value)}
+              />
+              <Button type="button" onClick={onCreatePlan} disabled={isBusy || !linkSlug}>
+                <Save aria-hidden="true" className="size-4" />
+                Save online
+              </Button>
+            </div>
+          )}
+          {status === "conflict" && conflictPlan ? (
+            <div className="grid gap-2 rounded-md border border-destructive/30 bg-destructive-muted p-2">
+              <div className="flex items-center gap-2 text-sm font-bold text-destructive">
+                <AlertTriangle aria-hidden="true" className="size-4" />
+                Stored version changed
+              </div>
+              <Button type="button" variant="outline" onClick={onLoadConflictPlan}>
+                Load stored version
+              </Button>
+            </div>
+          ) : null}
+          {error ? <p className="m-0 text-sm font-bold text-destructive">{error}</p> : null}
         </div>
       ) : null}
     </div>
@@ -628,11 +1079,110 @@ function LanguageControl({
   );
 }
 
-function createShareUrl(state: PlannerState) {
+function createShareUrl(state: PlannerState, planId?: string) {
+  if (typeof window === "undefined") return "";
+
   const url = new URL(window.location.href);
+  if (planId) {
+    url.pathname = `/${planId}`;
+    url.searchParams.delete(STATE_QUERY_KEY);
+    url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
+    return url.href;
+  }
+
   url.searchParams.set(STATE_QUERY_KEY, encodeState(state));
   url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
   return url.href;
+}
+
+function replaceUrlWithPlanId(planId: string) {
+  const url = new URL(window.location.href);
+  url.pathname = `/${planId}`;
+  url.searchParams.delete(STATE_QUERY_KEY);
+  url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
+  window.history.replaceState(null, "", url);
+}
+
+function resolvePersistenceError(code: string | undefined, fallback: string) {
+  switch (code) {
+    case "INVALID_PASSWORD":
+      return "The password is incorrect.";
+    case "PASSWORD_REQUIRED":
+      return "This plan requires a password.";
+    case "PLAN_NOT_FOUND":
+      return "This saved plan was not found.";
+    case "PLAN_STORE_NOT_CONFIGURED":
+      return "Saved plans are not configured on this deployment.";
+    case "INVALID_PLAN_ID":
+      return "Choose a link name with at least 3 letters or numbers.";
+    case "PLAN_ID_TAKEN":
+      return "That link name is already taken.";
+    case "REV_CONFLICT":
+      return "The stored plan changed since you loaded it.";
+    default:
+      return fallback;
+  }
+}
+
+function getApiError(payload: unknown) {
+  return typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string" ? payload.error : undefined;
+}
+
+function isPersistedPlan(payload: unknown): payload is PersistedPlan {
+  if (typeof payload !== "object" || payload === null) return false;
+  const value = payload as Record<string, unknown>;
+  return (
+    typeof value.id === "string" &&
+    typeof value.name === "string" &&
+    typeof value.createdAt === "string" &&
+    typeof value.updatedAt === "string" &&
+    typeof value.protected === "boolean" &&
+    Number.isInteger(value.rev) &&
+    typeof value.state === "object" &&
+    value.state !== null
+  );
+}
+
+function createSavedSnapshot(state: PlannerState, name: string) {
+  return JSON.stringify({ name: name.trim(), state: encodeState(state) });
+}
+
+function getDefaultPlanName() {
+  return "Wedding seating plan";
+}
+
+function createPlanSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+}
+
+function getPersistenceStatusLabel(status: PersistenceStatus, hasPlanId: boolean, isDirty: boolean) {
+  if (!hasPlanId) return "Local link";
+  if (status === "loading") return "Loading";
+  if (status === "saving") return "Saving";
+  if (status === "conflict") return "Conflict";
+  if (status === "error") return "Needs attention";
+  if (isDirty) return "Unsaved changes";
+  return "Saved online";
+}
+
+function resolveInitialPersistenceStatus(planId: string | undefined, initialPlanLoad: InitialPlanLoad | undefined): PersistenceStatus {
+  if (!planId) return "idle";
+  if (!initialPlanLoad) return "loading";
+  if (initialPlanLoad.status === "available") return "saved";
+  if (initialPlanLoad.status === "password-required") return "password-required";
+  return "error";
+}
+
+function resolveInitialPersistenceError(initialPlanLoad: InitialPlanLoad | undefined) {
+  if (initialPlanLoad?.status === "not-found") return "This saved plan was not found.";
+  if (initialPlanLoad?.status === "store-not-configured") return "Saved plans are not configured on this deployment.";
+  return "";
 }
 
 function createDuplicateTableName(name: string, tables: WeddingTable[], copySuffix: string) {

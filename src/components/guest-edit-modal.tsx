@@ -1,7 +1,7 @@
 import type { FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,7 @@ export function GuestEditModal({
             <div>
               <p className="m-0 text-xs font-bold tracking-normal text-muted-foreground uppercase">{t.modals.guestDetails}</p>
               <DialogTitle className="m-0 text-sm leading-tight">{t.modals.editGuest}</DialogTitle>
+              <DialogDescription className="sr-only">Edit the selected guest name, group, and dietary restrictions.</DialogDescription>
             </div>
           </DialogHeader>
           <div className="mt-4 grid gap-3">

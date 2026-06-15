@@ -2,7 +2,7 @@ import { Pencil, Plus } from "lucide-react";
 
 import { DietaryBadges } from "@/components/dietary-badges";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import type { Messages } from "@/i18n";
 import type { Guest, Seat, SeatModalState, WeddingTable } from "@/planner/types";
@@ -64,6 +64,7 @@ export function SeatAssignmentModal({
           <div>
             <p className="m-0 text-xs font-bold tracking-normal text-muted-foreground uppercase">{table?.name}</p>
             <DialogTitle className="m-0 text-sm leading-tight">{seat.label}</DialogTitle>
+            <DialogDescription className="sr-only">Choose a guest to assign to this seat, edit the assigned guest, or clear the seat.</DialogDescription>
           </div>
         </DialogHeader>
         {assignedGuest && (
