@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 import { dietaryBadgeDefinitions, LEGACY_STATE_QUERY_KEY, STATE_QUERY_KEY } from "@/planner/constants";
+import { orderGuestsForAlternatingSeating } from "@/planner/name-gender";
 import type {
   DietaryBadgeDefinition,
   Guest,
@@ -131,7 +132,7 @@ export function groupGuests(guests: Guest[]) {
   }
   return [...groups.entries()]
     .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))
-    .map(([, groupGuests]) => groupGuests.sort((a, b) => a.name.localeCompare(b.name)));
+    .map(([, groupGuests]) => orderGuestsForAlternatingSeating(groupGuests));
 }
 
 export function getDietaryBadges(dietary: string) {
