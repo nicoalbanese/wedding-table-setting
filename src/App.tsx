@@ -114,6 +114,7 @@ export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlan
   const hasPasswordChange = Boolean(remotePlan && (nextPlanPassword.trim() || (remotePlan.protected && clearPlanPassword)));
   const isDirty = hasContentChanges || hasPasswordChange;
   const isBusy = persistenceStatus === "loading" || persistenceStatus === "saving";
+  const normalizedLinkSlug = useMemo(() => createPlanSlug(linkSlug || planName), [linkSlug, planName]);
 
   useEffect(() => {
     if (currentPlanId) return;
@@ -148,7 +149,7 @@ export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlan
 
   useEffect(() => {
     if (currentPlanId || linkSlugEdited) return;
-    setLinkSlug(createPlanSlug(planName));
+    setLinkSlug(createEditablePlanSlug(planName));
   }, [currentPlanId, linkSlugEdited, planName]);
 
   useEffect(() => {
@@ -200,7 +201,7 @@ export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlan
   }
 
   async function createPersistedPlan() {
-    const id = createPlanSlug(linkSlug || planName);
+    const id = normalizedLinkSlug;
     if (!id) {
       setPersistenceStatus("error");
       setPersistenceError("Choose a valid link name before saving.");
@@ -796,6 +797,7 @@ export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlan
                 isDirty={isDirty}
                 isOpen={shareOpen}
                 linkSlug={linkSlug}
+                normalizedLinkSlug={normalizedLinkSlug}
                 clearPassword={clearPlanPassword}
                 onCreatePlan={createPersistedPlan}
                 onCopy={copyShareLink}
@@ -805,7 +807,7 @@ export function App({ initialPlanLoad, planId }: { initialPlanLoad?: InitialPlan
                 }}
                 onLinkSlugChange={(value) => {
                   setLinkSlugEdited(true);
-                  setLinkSlug(createPlanSlug(value));
+                  setLinkSlug(createEditablePlanSlug(value));
                 }}
                 onLoadConflictPlan={loadConflictPlan}
                 onNextPasswordChange={(password) => {
@@ -898,6 +900,7 @@ function ShareControl({
   isDirty,
   isOpen,
   linkSlug,
+  normalizedLinkSlug,
   nextPassword,
   onClearPasswordChange,
   onCreatePasswordChange,
@@ -926,6 +929,7 @@ function ShareControl({
   isDirty: boolean;
   isOpen: boolean;
   linkSlug: string;
+  normalizedLinkSlug: string;
   nextPassword: string;
   onClearPasswordChange: (checked: boolean) => void;
   onCreatePasswordChange: (password: string) => void;
@@ -1033,7 +1037,7 @@ function ShareControl({
                 value={createPassword}
                 onChange={(event) => onCreatePasswordChange(event.target.value)}
               />
-              <Button type="button" onClick={onCreatePlan} disabled={isBusy || !linkSlug}>
+              <Button type="button" onClick={onCreatePlan} disabled={isBusy || !normalizedLinkSlug}>
                 <Save aria-hidden="true" className="size-4" />
                 Save online
               </Button>
@@ -1151,14 +1155,18 @@ function getDefaultPlanName() {
   return "Wedding seating plan";
 }
 
-function createPlanSlug(value: string) {
+function createEditablePlanSlug(value: string) {
   return value
-    .trim()
+    .trimStart()
     .toLowerCase()
     .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
     .slice(0, 64);
+}
+
+function createPlanSlug(value: string) {
+  return createEditablePlanSlug(value).replace(/^-+|-+$/g, "");
 }
 
 function getPersistenceStatusLabel(status: PersistenceStatus, hasPlanId: boolean, isDirty: boolean) {
