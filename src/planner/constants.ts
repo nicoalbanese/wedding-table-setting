@@ -1,6 +1,7 @@
 import type { DietaryBadgeDefinition, PlannerState } from "@/planner/types";
 
-export const STATE_QUERY_KEY = "state";
+export const LEGACY_STATE_QUERY_KEY = "state";
+export const STATE_QUERY_KEY = "s";
 
 export const dietaryBadgeDefinitions: DietaryBadgeDefinition[] = [
   {

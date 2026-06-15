@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { type Messages, useI18n } from "@/i18n";
-import { createStarterState, STATE_QUERY_KEY } from "@/planner/constants";
+import { createStarterState, LEGACY_STATE_QUERY_KEY, STATE_QUERY_KEY } from "@/planner/constants";
 import type { Guest, GuestEditModalState, NewGuestForm, PlannerState, SeatModalState, WeddingTable } from "@/planner/types";
 import {
   createDefaultTable,
@@ -67,6 +67,7 @@ export function App() {
     const encoded = encodeState(state);
     if (url.searchParams.get(STATE_QUERY_KEY) !== encoded) {
       url.searchParams.set(STATE_QUERY_KEY, encoded);
+      url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
       window.history.replaceState(null, "", url);
     }
   }, [state]);
@@ -630,6 +631,7 @@ function LanguageControl({
 function createShareUrl(state: PlannerState) {
   const url = new URL(window.location.href);
   url.searchParams.set(STATE_QUERY_KEY, encodeState(state));
+  url.searchParams.delete(LEGACY_STATE_QUERY_KEY);
   return url.href;
 }
 
