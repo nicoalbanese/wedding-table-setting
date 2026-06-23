@@ -25,6 +25,7 @@ export type Messages = {
     language: string;
     nameForTable: (name: string) => string;
     planStatus: string;
+    reorderTable: (name: string) => string;
     removeGuest: (name: string) => string;
     removeTable: (name: string) => string;
     shareLink: string;
@@ -113,6 +114,7 @@ const messages: Record<Locale, Messages> = {
       language: "Switch language",
       nameForTable: (name) => `Name for ${name}`,
       planStatus: "Plan status",
+      reorderTable: (name) => `Drag to reorder ${name}`,
       removeGuest: (name) => `Remove ${name}`,
       removeTable: (name) => `Remove ${name}`,
       shareLink: "Share link",
@@ -199,6 +201,7 @@ const messages: Record<Locale, Messages> = {
       language: "Cambia lingua",
       nameForTable: (name) => `Nome per ${name}`,
       planStatus: "Stato del piano",
+      reorderTable: (name) => `Trascina per riordinare ${name}`,
       removeGuest: (name) => `Rimuovi ${name}`,
       removeTable: (name) => `Rimuovi ${name}`,
       shareLink: "Link di condivisione",

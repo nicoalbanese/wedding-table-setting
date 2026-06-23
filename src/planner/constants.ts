@@ -2,6 +2,7 @@ import type { DietaryBadgeDefinition, PlannerState } from "@/planner/types";
 
 export const LEGACY_STATE_QUERY_KEY = "state";
 export const STATE_QUERY_KEY = "s";
+export const TABLE_DRAG_MIME = "application/x-table-id";
 
 export const dietaryBadgeDefinitions: DietaryBadgeDefinition[] = [
   {

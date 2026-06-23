@@ -1,40 +1,97 @@
-import { Copy, X } from "lucide-react";
+import type { DragEvent, KeyboardEvent } from "react";
 
+import { Copy, GripVertical, X } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Messages } from "@/i18n";
+import { cn } from "@/lib/utils";
+import { TABLE_DRAG_MIME } from "@/planner/constants";
 import type { TableShape, WeddingTable } from "@/planner/types";
 import { clamp, createSeatsForTable } from "@/planner/utils";
 
 export function TableEditor({
   canRemove,
+  isDragging,
+  isDropTarget,
   isOpen,
   onChange,
+  onDragEnd,
+  onDragOver,
+  onDragStart,
+  onDrop,
   onDuplicate,
+  onKeyboardMove,
   onRemove,
   onToggle,
   table,
   t,
 }: {
   canRemove: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
   isOpen: boolean;
   onChange: (patch: Partial<WeddingTable>) => void;
+  onDragEnd: () => void;
+  onDragOver: (event: DragEvent<HTMLElement>) => void;
+  onDragStart: () => void;
+  onDrop: (event: DragEvent<HTMLElement>) => void;
   onDuplicate: () => void;
+  onKeyboardMove: (direction: -1 | 1) => void;
   onRemove: () => void;
   onToggle: (isOpen: boolean) => void;
   table: WeddingTable;
   t: Messages;
 }) {
+  function handleKeyboardMove(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    onKeyboardMove(event.key === "ArrowUp" ? -1 : 1);
+  }
+
   return (
     <details
-      className="overflow-hidden rounded-lg border border-border bg-accent"
+      className={cn(
+        "overflow-hidden rounded-lg border border-border bg-accent transition-colors",
+        isDragging && "opacity-55",
+        isDropTarget && "border-primary bg-primary-muted/60",
+      )}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       open={isOpen}
       onToggle={(event) => onToggle(event.currentTarget.open)}
     >
-      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2.5 px-3 py-2.5 transition-colors marker:hidden hover:bg-background">
-        <span className="min-w-0 overflow-hidden text-sm font-bold text-ellipsis whitespace-nowrap">{table.name}</span>
+      <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 px-2 py-2.5 transition-colors marker:hidden hover:bg-background">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Button
+            aria-label={t.aria.reorderTable(table.name)}
+            className="size-7 rounded-md border-border bg-background p-0 text-muted-foreground hover:text-foreground active:cursor-grabbing"
+            draggable
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            onDragEnd={onDragEnd}
+            onDragStart={(event) => {
+              event.stopPropagation();
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData(TABLE_DRAG_MIME, table.id);
+              onDragStart();
+            }}
+            onKeyDown={handleKeyboardMove}
+            size="icon"
+            title={t.aria.reorderTable(table.name)}
+            type="button"
+            variant="ghost"
+          >
+            <GripVertical aria-hidden="true" className="size-4" />
+          </Button>
+          <span className="min-w-0 overflow-hidden text-sm font-bold text-ellipsis whitespace-nowrap">{table.name}</span>
+        </div>
         <div className="flex flex-none items-center gap-2">
           <em className="text-xs not-italic whitespace-nowrap text-muted-foreground">
             {t.counts.seats(createSeatsForTable(table, t.seats).length)}

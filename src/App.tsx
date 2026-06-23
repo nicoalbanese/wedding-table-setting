@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Textarea } from "@/components/ui/textarea";
 import { type Messages, useI18n } from "@/i18n";
-import { createStarterState, LEGACY_STATE_QUERY_KEY, STATE_QUERY_KEY } from "@/planner/constants";
+import { createStarterState, LEGACY_STATE_QUERY_KEY, STATE_QUERY_KEY, TABLE_DRAG_MIME } from "@/planner/constants";
 import type { Guest, GuestEditModalState, NewGuestForm, PlannerState, SeatModalState, WeddingTable } from "@/planner/types";
 import {
   createDefaultTable,
@@ -86,6 +86,8 @@ export function App({
   const [csvText, setCsvText] = useState("");
   const [newGuest, setNewGuest] = useState<NewGuestForm>({ name: "", group: "", dietary: "" });
   const [openTableEditorIds, setOpenTableEditorIds] = useState<Set<string>>(() => new Set());
+  const [draggedTableId, setDraggedTableId] = useState<string | null>(null);
+  const [tableDropTargetId, setTableDropTargetId] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
   const [shareCopied, setShareCopied] = useState(false);
@@ -363,6 +365,58 @@ export function App({
         tables: current.tables.map((table) => (table.id === tableId ? { ...table, ...patch } : table)),
       }),
     );
+  }
+
+  function moveTable(tableId: string, direction: -1 | 1) {
+    setState((current) => {
+      const sourceIndex = current.tables.findIndex((table) => table.id === tableId);
+      const targetIndex = sourceIndex + direction;
+      if (sourceIndex < 0 || targetIndex < 0 || targetIndex >= current.tables.length) return current;
+
+      const tables = [...current.tables];
+      const [table] = tables.splice(sourceIndex, 1);
+      tables.splice(targetIndex, 0, table);
+      return { ...current, tables };
+    });
+  }
+
+  function reorderTables(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+
+    setState((current) => {
+      const sourceIndex = current.tables.findIndex((table) => table.id === draggedId);
+      const targetIndex = current.tables.findIndex((table) => table.id === targetId);
+      if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+
+      const tables = [...current.tables];
+      const [table] = tables.splice(sourceIndex, 1);
+      tables.splice(targetIndex, 0, table);
+      return { ...current, tables };
+    });
+  }
+
+  function handleTableDragOver(event: DragEvent<HTMLElement>, targetId: string) {
+    const isTableDrag = Array.from(event.dataTransfer.types).includes(TABLE_DRAG_MIME);
+    if (!draggedTableId || draggedTableId === targetId || !isTableDrag) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setTableDropTargetId((current) => (current === targetId ? current : targetId));
+  }
+
+  function handleTableDrop(event: DragEvent<HTMLElement>, targetId: string) {
+    const sourceId = event.dataTransfer.getData(TABLE_DRAG_MIME);
+    if (!sourceId) return;
+
+    event.preventDefault();
+    reorderTables(sourceId, targetId);
+    setDraggedTableId(null);
+    setTableDropTargetId(null);
+  }
+
+  function clearTableDragState() {
+    setDraggedTableId(null);
+    setTableDropTargetId(null);
   }
 
   function addTable() {
@@ -710,9 +764,16 @@ export function App({
                 {state.tables.map((table) => (
                   <TableEditor
                     key={table.id}
+                    isDragging={draggedTableId === table.id}
+                    isDropTarget={tableDropTargetId === table.id}
                     isOpen={openTableEditorIds.has(table.id)}
                     onChange={(patch) => updateTable(table.id, patch)}
+                    onDragEnd={clearTableDragState}
+                    onDragOver={(event) => handleTableDragOver(event, table.id)}
+                    onDragStart={() => setDraggedTableId(table.id)}
+                    onDrop={(event) => handleTableDrop(event, table.id)}
                     onDuplicate={() => duplicateTable(table.id)}
+                    onKeyboardMove={(direction) => moveTable(table.id, direction)}
                     onRemove={() => removeTable(table.id)}
                     onToggle={(isOpen) =>
                       setOpenTableEditorIds((current) => {
