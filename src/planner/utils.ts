@@ -200,6 +200,23 @@ export function parseGuestsCsv(text: string): Omit<Guest, "id">[] {
     .filter((guest) => guest.name);
 }
 
+export function createSeatConfigurationCsv(state: PlannerState, labels: SeatLabels = defaultSeatLabels, tableFallback = "Table") {
+  const guestById = new Map(state.guests.map((guest) => [guest.id, guest]));
+  const rows = [["Guest name", "Table name", "Seat position", "Dietary restrictions"]];
+
+  for (const table of state.tables) {
+    const tableName = table.name.trim() || tableFallback;
+    for (const seat of createSeatsForTable(table, labels)) {
+      const guest = guestById.get(state.assignments[seat.id]);
+      if (!guest) continue;
+
+      rows.push([guest.name, tableName, seat.label, guest.dietary]);
+    }
+  }
+
+  return rows.map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
+}
+
 function findHeaderIndex(headers: string[], aliases: string[]) {
   return headers.findIndex((header) => aliases.includes(header));
 }

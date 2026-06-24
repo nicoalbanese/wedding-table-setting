@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Check, Copy, Languages, Lock, Plus, Save, Share2 } from "lucide-react";
+import { AlertTriangle, Check, Copy, Download, Languages, Lock, Plus, Save, Share2 } from "lucide-react";
 
 import { GuestChip } from "@/components/guest-chip";
 import { GuestEditModal } from "@/components/guest-edit-modal";
@@ -32,6 +32,7 @@ import {
   createDefaultTable,
   createId,
   createSeatsForTable,
+  createSeatConfigurationCsv,
   encodeState,
   findSeatForGuest,
   groupGuests,
@@ -718,6 +719,20 @@ export function App({
     openSharePanel();
   }
 
+  function exportSeatConfiguration() {
+    const csv = createSeatConfigurationCsv(state, t.seats, t.defaults.table);
+    const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${createCsvFilename(planName)}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   const modalSeat = seatModal ? seatById.get(seatModal.seatId) : undefined;
   const modalTable = modalSeat ? state.tables.find((table) => table.id === modalSeat.tableId) : undefined;
   const modalAssignedGuest = modalSeat ? guestById.get(state.assignments[modalSeat.id]) : undefined;
@@ -930,6 +945,10 @@ export function App({
                 nextLabel={t.language.next}
                 onToggle={() => setLocale(locale === "it" ? "en" : "it")}
               />
+              <Button type="button" variant="outline" onClick={exportSeatConfiguration}>
+                <Download aria-hidden="true" className="size-4" />
+                <span className="max-sm:sr-only">{t.actions.exportSeats}</span>
+              </Button>
               <Button
                 className="relative"
                 disabled={isBusy || (remotePlan ? !isDirty && persistenceStatus === "saved" : false)}
@@ -1445,6 +1464,14 @@ function createEditablePlanSlug(value: string) {
 
 function createPlanSlug(value: string) {
   return createEditablePlanSlug(value).replace(/^-+|-+$/g, "");
+}
+
+function createCsvFilename(value: string) {
+  return (
+    createEditablePlanSlug(value)
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "wedding-seating-plan"
+  );
 }
 
 function getPersistenceStatusLabel(status: PersistenceStatus, hasPlanId: boolean, isDirty: boolean) {
